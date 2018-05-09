@@ -1,0 +1,161 @@
+#-
+# Copyright 2018 UPLEX Nils Goroll Systemoptimierung
+# All rights reserved
+#
+# Author: Nils Goroll <nils.goroll@uplex.de>
+#
+# See LICENSE
+#
+
+$Module cluster 3 Varnish cluster Module
+
+DESCRIPTION
+===========
+
+This director facilitates the implementation of varnish cache
+clustering, in particular in combination with the shard director. The
+basic design idea is to shard objects among a number of varnish caches
+configured in the director passed as the `cluster` argument: If the
+local cache is the shard member designated for serving the respective
+object, a backend request is to be made with a real
+backend. Otherwise, the request is to be forwarded to another node
+from the `cluster` argument, which, in turn, will either serve the
+object from its cache or issue a request against a `real` backend.
+
+For a shard director argument ``shard``, the following examples are
+roughly equivalent if ``myself`` resolves to the local node
+
+* explicit VCL code with shard director ``resolve=now``::
+
+	sub vcl_init {
+		new shard = directors.shard();
+		shard.add_backend(other_node);
+		shard.add_backend(myself);
+		shard.reconfigure();
+		new real = directors.whatever();
+		real.add_backend(...)
+		# ...
+	}
+
+	sub vcl_backend_fetch {
+		if (bereq.uncacheable || shard.backend() == myself) {
+			set bereq.backend = real.backend();
+		} else {
+			set bereq.backend = shard.backend();
+		}
+	}
+
+* use of the cluster director::
+
+	sub vcl_init {
+		# same as above, plus
+		new cluster = cluster.cluster(shard,
+			deny = myself,
+			real = real.backend());
+	}
+
+	sub vcl_backend_fetch {
+		set bereq.backend = cluster.backend();
+	}
+
+
+Differences between the two methods are:
+
+* the cluster director works with lazy resolution where a director
+  does not return one of its configured backends, but rather a
+  reference to itself (as do all the varnish bundled directors except
+  for the shard director, which supports lazy resolution with the
+  ``resolve=LAZY`` argument).
+
+* when different ``deny`` or, in particular, ``real`` backends are to
+  be used, the cluster director can save substantial amounts of VCL
+  code: Using the ``.real()`` method, the director of real backends
+  can be changed in ``vcl_backend_fetch {}``.
+
+  Simply put, when using the cluster director, the ``.real()`` method
+  effectively replaces ``set bereq.backend``.
+
+$Object cluster(BACKEND cluster, [ BACKEND deny ], [ BACKEND real ],
+	BOOL uncacheable_direct = 1)
+
+Instantiate a cluster director on top of the director passed as the
+`cluster` argument.
+
+The optional `deny` argument allows to specify one backend for which
+the cluster director will resolve to a `real` backend (the blacklist)
+as if the `.deny(BACKEND)` method had been called.
+
+The optional `real` argument allows to specify the director which use
+if a denied backend would have been hit as if the `.real(BACKEND)`
+method had been called.
+
+With the default `uncacheable_direct` argument, the cluster director
+always selects a `real` backend for uncacheable backend requests (as
+the vcl example above illustrates). Seting this argument ``false``
+disables special handling of uncacheable backend requests.
+
+
+$Method VOID .deny(BACKEND)
+
+Add a backend to the list of backends for which the cluster director
+will resolve to a `real` backend (the blacklist).
+
+When used in ``vcl_init{}``, changes the director's default
+blacklist.
+
+When used in ``vcl_backend_fetch {}``, changes the director's backlist
+for this backend request only. When the `.backend()` method is used
+with ``resolve=LAZY``, this method changes the behaviour irrespecitve
+of being called before or after the `.backend()` method.
+
+Use in vcl subs other than ``vcl_init{}`` and ``vcl_backend_fetch {}``
+is invalid and will trigger a VCL error.
+
+$Method VOID .allow(BACKEND)
+
+Remove a backend to the list of backends for which the cluster
+director will resolve to a `real` backend (the blacklist).
+
+Otherwise identical to the `.deny()` method.
+
+$Method VOID .real(BACKEND)
+
+Only valid in ``vcl_backend_fetch {}``: Use a diffrent backend for
+resolution of real backends.
+
+When the `.backend()` method is used with ``resolve=LAZY``, this
+method changes the behaviour irrespecitve of being called before or
+after the `.backend()` method.
+
+$Method VOID .uncacheable_direct(BOOL)
+
+Only valid in ``vcl_backend_fetch {}``: If a ``true`` argument is
+given, a `real` backend is always returned for uncacheable backend
+requests (e.g. passes or cache lookups hitting hit-for-pass). For a
+``false`` argument, no difference is made with regard to the
+cacheability of the backend request.
+
+When the `.backend()` method is used with ``resolve=LAZY``, this
+method changes the behaviour irrespecitve of being called before or
+after the `.backend()` method.
+
+$Method BACKEND .backend(ENUM {NOW, LAZY} resolve=LAZY,
+	[ BACKEND deny ], [ BACKEND real ],
+	[ BOOL uncacheable_direct ])
+
+
+Return a backend by the method described in the rest of this
+documentation, either as a reference to cluster director for
+``resolve=LAZY`` or immediately for ``resolve=NOW``.
+
+The optional `deny`, `real` and `uncacheable_direct` arguments have
+the same effect as calling the methods `.deny()`, `.real()` and
+`.uncacheable_direct()` methods before the `.backend()` method with
+``resolve=LAZY``, but can also be used with ``resolve=NOW``. Use of
+these arguments with ``resolve=LAZY`` is only allowed in
+``vcl_backend_fetch {}`` and ``vcl_init {}``.
+
+
+SEE ALSO
+========
+vcl\(7),varnishd\(1)

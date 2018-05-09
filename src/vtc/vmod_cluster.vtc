@@ -1,0 +1,32 @@
+varnishtest "vmod_cluster toy example with round-robin"
+
+varnish v1 -vcl {
+    import cluster;
+    import directors;
+
+    backend s1 { .host = "${bad_backend}";}
+    backend s2 { .host = "${bad_backend}";}
+    backend s3 { .host = "${bad_backend}";}
+
+    sub vcl_init {
+	new rr = directors.round_robin();
+	rr.add_backend(s1);
+	rr.add_backend(s2);
+	new cl = cluster.cluster(rr.backend(), deny=s2, real=s3);
+    }
+    sub vcl_recv {
+	return (synth(200));
+    }
+    sub vcl_synth {
+	set resp.http.b1 = cl.backend(resolve=NOW);
+	set resp.http.b2 = cl.backend(resolve=NOW);
+    }
+} -start
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+	expect resp.http.b1 == s1
+	expect resp.http.b2 == s3
+} -run
