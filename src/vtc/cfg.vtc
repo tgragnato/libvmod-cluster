@@ -1,0 +1,190 @@
+varnishtest "vmod_cluster configuration"
+
+server s1 {
+    rxreq
+    txresp
+} -start
+
+server s2 {
+}
+
+server s3 {
+    rxreq
+    txresp
+} -start
+
+varnish v1 -vcl+backend {
+    import std;
+    import cluster;
+    import directors;
+
+    sub vcl_init {
+	new rr = directors.round_robin();
+	rr.add_backend(s1);
+	rr.add_backend(s2);
+	new cl = cluster.cluster(rr.backend(), deny=s2, real=s3);
+
+	std.log("1ds1 " + cl.is_denied(s1));
+	std.log("1ds2 " + cl.is_denied(s2));
+	std.log("1ds3 " + cl.is_denied(s3));
+	std.log("1rea " + cl.get_real());
+	std.log("1unc " + cl.get_uncacheable_direct());
+
+	cl.deny(s1);
+	cl.set_real(s2);
+	cl.set_uncacheable_direct(false);
+	std.log("2ds1 " + cl.is_denied(s1));
+	std.log("2ds2 " + cl.is_denied(s2));
+	std.log("2ds3 " + cl.is_denied(s3));
+	std.log("2rea " + cl.get_real());
+	std.log("2unc " + cl.get_uncacheable_direct());
+
+	cl.deny(s1);
+	cl.set_real(s2);
+	std.log("3ds1 " + cl.is_denied(s1));
+	std.log("3ds2 " + cl.is_denied(s2));
+	std.log("3ds3 " + cl.is_denied(s3));
+	std.log("3rea " + cl.get_real());
+	std.log("3unc " + cl.get_uncacheable_direct());
+
+	cl.allow(s1);
+	cl.allow(s2);
+	cl.allow(s3);
+	cl.set_uncacheable_direct(true);
+	std.log("4ds1 " + cl.is_denied(s1));
+	std.log("4ds2 " + cl.is_denied(s2));
+	std.log("4ds3 " + cl.is_denied(s3));
+	std.log("4rea " + cl.get_real());
+	std.log("4unc " + cl.get_uncacheable_direct());
+
+	cl.deny(s2);
+	cl.set_real(s3);
+}
+    sub vcl_recv {
+	if (req.url == "/syn") {
+		return (synth(200));
+	}
+	return (pass);
+    }
+    sub vcl_synth {
+	set resp.http.b1 = cl.backend(resolve=NOW);
+	set resp.http.b2 = cl.backend(resolve=NOW);
+    }
+    sub vcl_backend_fetch {
+
+	std.log("1ds1 " + cl.is_denied(s1));
+	std.log("1ds2 " + cl.is_denied(s2));
+	std.log("1ds3 " + cl.is_denied(s3));
+	std.log("1rea " + cl.get_real());
+	std.log("1unc " + cl.get_uncacheable_direct());
+
+	cl.deny(s1);
+	cl.set_real(s2);
+	cl.set_uncacheable_direct(true);
+	std.log("2ds1 " + cl.is_denied(s1));
+	std.log("2ds2 " + cl.is_denied(s2));
+	std.log("2ds3 " + cl.is_denied(s3));
+	std.log("2rea " + cl.get_real());
+	std.log("2unc " + cl.get_uncacheable_direct());
+
+	cl.deny(s1);
+	cl.set_real(s2);
+	std.log("3ds1 " + cl.is_denied(s1));
+	std.log("3ds2 " + cl.is_denied(s2));
+	std.log("3ds3 " + cl.is_denied(s3));
+	std.log("3rea " + cl.get_real());
+	std.log("3unc " + cl.get_uncacheable_direct());
+
+	set bereq.backend = cl.backend();
+
+	cl.allow(s1);
+	cl.allow(s2);
+	cl.allow(s3);
+	cl.set_uncacheable_direct(false);
+	std.log("4ds1 " + cl.is_denied(s1));
+	std.log("4ds2 " + cl.is_denied(s2));
+	std.log("4ds3 " + cl.is_denied(s3));
+	std.log("4rea " + cl.get_real());
+	std.log("4unc " + cl.get_uncacheable_direct());
+
+	cl.deny(s2);
+	cl.set_real(s3);
+    }
+    sub vcl_backend_response {
+	set beresp.http.backend = beresp.backend;
+    }
+} -start
+
+logexpect l1 -v v1 -g raw -d 1 {
+
+	expect 0 0	CLI             {^Rd vcl.load}
+	expect 0 0	VCL_Log         {^1ds1 false}
+	expect 0 0	VCL_Log         {^1ds2 true}
+	expect 0 0	VCL_Log         {^1ds3 false}
+	expect 0 0	VCL_Log         {^1rea s3}
+	expect 0 0	VCL_Log         {^1unc true}
+
+	expect 0 0	VCL_Log         {^2ds1 true}
+	expect 0 0	VCL_Log         {^2ds2 true}
+	expect 0 0	VCL_Log         {^2ds3 false}
+	expect 0 0	VCL_Log         {^2rea s2}
+	expect 0 0	VCL_Log         {^2unc false}
+
+	expect 0 0	VCL_Log         {^3ds1 true}
+	expect 0 0	VCL_Log         {^3ds2 true}
+	expect 0 0	VCL_Log         {^3ds3 false}
+	expect 0 0	VCL_Log         {^3rea s2}
+	expect 0 0	VCL_Log         {^3unc false}
+
+	expect 0 0	VCL_Log         {^4ds1 false}
+	expect 0 0	VCL_Log         {^4ds2 false}
+	expect 0 0	VCL_Log         {^4ds3 false}
+	expect 0 0	VCL_Log         {^4rea s2}
+	expect 0 0	VCL_Log         {^4unc true}
+
+	# 2/3/4unc : intentonally differs from vcl_init
+	expect * 1003	VCL_call	{^BACKEND_FETCH}
+	expect 0 1003	VCL_Log         {^1ds1 false}
+	expect 0 1003	VCL_Log         {^1ds2 true}
+	expect 0 1003	VCL_Log         {^1ds3 false}
+	expect 0 1003	VCL_Log         {^1rea s3}
+	expect 0 1003	VCL_Log         {^1unc true}
+
+	expect 0 1003	VCL_Log         {^2ds1 true}
+	expect 0 1003	VCL_Log         {^2ds2 true}
+	expect 0 1003	VCL_Log         {^2ds3 false}
+	expect 0 1003	VCL_Log         {^2rea s2}
+	expect 0 1003	VCL_Log         {^2unc tru.}
+
+	expect 0 1003	VCL_Log         {^3ds1 true}
+	expect 0 1003	VCL_Log         {^3ds2 true}
+	expect 0 1003	VCL_Log         {^3ds3 false}
+	expect 0 1003	VCL_Log         {^3rea s2}
+	expect 0 1003	VCL_Log         {^3unc tru.}
+
+	expect 0 1003	VCL_Log         {^4ds1 false}
+	expect 0 1003	VCL_Log         {^4ds2 false}
+	expect 0 1003	VCL_Log         {^4ds3 false}
+	expect 0 1003	VCL_Log         {^4rea s2}
+	expect 0 1003	VCL_Log         {^4unc fals.}
+} -start
+
+client c1 {
+	txreq -url "/syn"
+	rxresp
+	expect resp.status == 200
+	expect resp.http.b1 == s1
+	expect resp.http.b2 == s3
+
+	txreq
+	rxresp
+	expect resp.status == 200
+	expect resp.http.backend == "s1"
+
+	txreq
+	rxresp
+	expect resp.status == 200
+	expect resp.http.backend == "s3"
+} -run
+
+logexpect l1 -wait

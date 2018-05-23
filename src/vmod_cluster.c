@@ -235,11 +235,11 @@ vmod_cluster__fini(struct vmod_cluster_cluster **vcp)
 }
 
 #define cluster_methods (VCL_MET_INIT | VCL_MET_BACKEND_FETCH)
-#define cluster_check(ctx, name) do {					\
+#define cluster_check(ctx, name, ret) do {				\
 		if ((ctx->method & cluster_methods) == 0) {		\
 			VRT_fail(ctx,					\
 			    "cluster." #name " can not be called here"); \
-			return;						\
+			return ret;					\
 		}							\
 	} while(0)
 
@@ -250,7 +250,7 @@ vmod_cluster_deny(VRT_CTX,
 	const struct vmod_cluster_cluster_param *pr;
 	struct vmod_cluster_cluster_param *pl;
 
-	cluster_check(ctx, deny);
+	cluster_check(ctx, deny, );
 
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
@@ -269,7 +269,7 @@ vmod_cluster_allow(VRT_CTX,
 	const struct vmod_cluster_cluster_param *pr;
 	struct vmod_cluster_cluster_param *pl;
 
-	cluster_check(ctx, allow);
+	cluster_check(ctx, allow, );
 
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
@@ -281,6 +281,20 @@ vmod_cluster_allow(VRT_CTX,
 	cluster_blacklist_del(pl, b);
 }
 
+VCL_BOOL
+vmod_cluster_is_denied(VRT_CTX,
+    struct vmod_cluster_cluster *vc, VCL_BACKEND b)
+{
+	const struct vmod_cluster_cluster_param *pr;
+
+	cluster_check(ctx, is_denied, 0);
+	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
+
+	pr = cluster_task_param_r(ctx, vc);
+
+	return (cluster_blacklisted(pr, b));
+}
+
 VCL_VOID
 vmod_cluster_set_real(VRT_CTX,
     struct vmod_cluster_cluster *vc, VCL_BACKEND b)
@@ -288,7 +302,7 @@ vmod_cluster_set_real(VRT_CTX,
 	const struct vmod_cluster_cluster_param *pr;
 	struct vmod_cluster_cluster_param *pl;
 
-	cluster_check(ctx, set_real);
+	cluster_check(ctx, set_real, );
 
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
@@ -300,6 +314,21 @@ vmod_cluster_set_real(VRT_CTX,
 	pl->real = b;
 }
 
+VCL_BACKEND
+vmod_cluster_get_real(VRT_CTX, struct vmod_cluster_cluster *vc)
+{
+	const struct vmod_cluster_cluster_param *pr;
+	struct vmod_cluster_cluster_param *pl;
+
+	cluster_check(ctx, get_real, NULL);
+
+	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
+
+	pr = cluster_task_param_r(ctx, vc);
+
+	return (pr->real);
+}
+
 VCL_VOID
 vmod_cluster_set_uncacheable_direct(VRT_CTX,
     struct vmod_cluster_cluster *vc, VCL_BOOL direct)
@@ -307,7 +336,7 @@ vmod_cluster_set_uncacheable_direct(VRT_CTX,
 	const struct vmod_cluster_cluster_param *pr;
 	struct vmod_cluster_cluster_param *pl;
 
-	cluster_check(ctx, set_uncacheable_direct);
+	cluster_check(ctx, set_uncacheable_direct, );
 
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
@@ -317,6 +346,20 @@ vmod_cluster_set_uncacheable_direct(VRT_CTX,
 
 	pl = cluster_task_param_l(ctx, vc, 0);
 	pl->uncacheable_direct = direct;
+}
+
+VCL_BOOL
+vmod_cluster_get_uncacheable_direct(VRT_CTX,
+    struct vmod_cluster_cluster *vc)
+{
+	const struct vmod_cluster_cluster_param *pr;
+
+	cluster_check(ctx, get_uncacheable_direct, 0);
+
+	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
+
+	pr = cluster_task_param_r(ctx, vc);
+	return (pr->uncacheable_direct);
 }
 
 static VCL_BACKEND

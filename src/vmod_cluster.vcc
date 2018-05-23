@@ -75,6 +75,32 @@ Differences between the two methods are:
   Simply put, when using the cluster director, the ``.set_real()``
   method effectively replaces ``set bereq.backend``.
 
+.. _meth_ctx:
+
+Method Behavior in Different VCL Subs
+-------------------------------------
+
+The :ref:`obj_cluster` object methods other than
+:ref:`func_cluster.backend` behave differently depending on the
+context they are being called from:
+
+* When used in ``vcl_init{}``, they change or return the director's
+  default.
+
+* When used in ``vcl_backend_fetch {}``, they change or return the
+  director's property for this backend request only.
+
+  When the :ref:`func_cluster.backend` method is used with
+  ``resolve=LAZY``, modifying methods change the behaviour
+  irrespecitve of being called before or after the
+  :ref:`func_cluster.backend` method.
+
+* Use in vcl subs other than ``vcl_init{}`` and
+  ``vcl_backend_fetch{}`` is invalid and will trigger a VCL error.
+
+:ref:`func_cluster.backend` has slightly different, specifically
+documented limitations.
+
 $Object cluster(BACKEND cluster, [ BACKEND deny ], [ BACKEND real ],
 	BOOL uncacheable_direct = 1)
 
@@ -83,61 +109,64 @@ Instantiate a cluster director on top of the director passed as the
 
 The optional `deny` argument allows to specify one backend for which
 the cluster director will resolve to a `real` backend (the blacklist)
-as if the `.deny(BACKEND)` method had been called.
+as if the :ref:`func_cluster.deny` method had been called.
 
 The optional `real` argument allows to specify the director which use
-if a denied backend would have been hit as if the `.set_real(BACKEND)`
-method had been called.
+if a denied backend would have been hit as if the
+:ref:`func_cluster.set_real` method had been called.
 
 With the default `uncacheable_direct` argument, the cluster director
 always selects a `real` backend for uncacheable backend requests (as
 the vcl example above illustrates). Seting this argument ``false``
 disables special handling of uncacheable backend requests.
 
-
 $Method VOID .deny(BACKEND)
 
 Add a backend to the list of backends for which the cluster director
 will resolve to a `real` backend (the blacklist).
 
-When used in ``vcl_init{}``, changes the director's default
-blacklist.
-
-When used in ``vcl_backend_fetch {}``, changes the director's backlist
-for this backend request only. When the `.backend()` method is used
-with ``resolve=LAZY``, this method changes the behaviour irrespecitve
-of being called before or after the `.backend()` method.
-
-Use in vcl subs other than ``vcl_init{}`` and ``vcl_backend_fetch {}``
-is invalid and will trigger a VCL error.
+See :ref:`meth_ctx` for limitations.
 
 $Method VOID .allow(BACKEND)
 
 Remove a backend to the list of backends for which the cluster
 director will resolve to a `real` backend (the blacklist).
 
-Otherwise identical to the `.deny()` method.
+See :ref:`meth_ctx` for limitations.
+
+$Method BOOL .is_denied(BACKEND)
+
+Return true if the argument is on list of backends for which the
+cluster director will resolve to a `real` backend (the blacklist).
+
+See :ref:`meth_ctx` for limitations.
 
 $Method VOID .set_real(BACKEND)
 
-Only valid in ``vcl_backend_fetch {}``: Use a diffrent backend for
-resolution of real backends.
+Change the real backend.
 
-When the `.backend()` method is used with ``resolve=LAZY``, this
-method changes the behaviour irrespecitve of being called before or
-after the `.backend()` method.
+See :ref:`meth_ctx` for limitations.
+
+$Method BACKEND .get_real()
+
+Return the currently configured real backend.
+
+See :ref:`meth_ctx` for limitations.
 
 $Method VOID .set_uncacheable_direct(BOOL)
 
-Only valid in ``vcl_backend_fetch {}``: If a ``true`` argument is
-given, a `real` backend is always returned for uncacheable backend
-requests (e.g. passes or cache lookups hitting hit-for-pass). For a
-``false`` argument, no difference is made with regard to the
-cacheability of the backend request.
+If a ``true`` argument is given, a `real` backend is always returned
+for uncacheable backend requests (e.g. passes or cache lookups hitting
+hit-for-pass). For a ``false`` argument, no difference is made with
+regard to the cacheability of the backend request.
 
-When the `.backend()` method is used with ``resolve=LAZY``, this
-method changes the behaviour irrespecitve of being called before or
-after the `.backend()` method.
+See :ref:`meth_ctx` for limitations.
+
+$Method BOOL .get_uncacheable_direct()
+
+Return the currently configured behaviour.
+
+See :ref:`meth_ctx` for limitations.
 
 $Method BACKEND .backend(ENUM {NOW, LAZY} resolve=LAZY,
 	[ BACKEND deny ], [ BACKEND real ],
@@ -149,11 +178,12 @@ documentation, either as a reference to cluster director for
 ``resolve=LAZY`` or immediately for ``resolve=NOW``.
 
 The optional `deny`, `real` and `uncacheable_direct` arguments have
-the same effect as calling the methods `.deny()`, `.set_real()` and
-`.set_uncacheable_direct()` methods before the `.backend()` method
-with ``resolve=LAZY``, but can also be used with ``resolve=NOW``. Use
-of these arguments with ``resolve=LAZY`` is only allowed in
-``vcl_backend_fetch {}`` and ``vcl_init {}``.
+the same effect as calling the methods :ref:`func_cluster.deny`,
+:ref:`func_cluster.set_real` and
+:ref:`func_cluster.set_uncacheable_direct` before the `.backend()`
+method with ``resolve=LAZY``, but can also be used with
+``resolve=NOW``. Use of these arguments with ``resolve=LAZY`` is only
+allowed in ``vcl_backend_fetch {}`` and ``vcl_init {}``.
 
 
 SEE ALSO
