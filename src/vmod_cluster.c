@@ -187,7 +187,8 @@ cluster_blacklisted(const struct vmod_cluster_cluster_param *p,
 	return (0);
 }
 
-VCL_VOID vmod_cluster__init(VRT_CTX,
+VCL_VOID
+vmod_cluster__init(VRT_CTX,
     struct vmod_cluster_cluster **vcp, const char *vcl_name,
     struct vmod_cluster__init_arg *args)
 {
@@ -242,7 +243,8 @@ vmod_cluster__fini(struct vmod_cluster_cluster **vcp)
 		}							\
 	} while(0)
 
-VCL_VOID vmod_cluster_deny(VRT_CTX,
+VCL_VOID
+vmod_cluster_deny(VRT_CTX,
     struct vmod_cluster_cluster *vc, VCL_BACKEND b)
 {
 	const struct vmod_cluster_cluster_param *pr;
@@ -260,7 +262,8 @@ VCL_VOID vmod_cluster_deny(VRT_CTX,
 	cluster_blacklist_add(pl, b);
 }
 
-VCL_VOID vmod_cluster_allow(VRT_CTX,
+VCL_VOID
+vmod_cluster_allow(VRT_CTX,
     struct vmod_cluster_cluster *vc, VCL_BACKEND b)
 {
 	const struct vmod_cluster_cluster_param *pr;
@@ -278,7 +281,8 @@ VCL_VOID vmod_cluster_allow(VRT_CTX,
 	cluster_blacklist_del(pl, b);
 }
 
-VCL_VOID vmod_cluster_set_real(VRT_CTX,
+VCL_VOID
+vmod_cluster_set_real(VRT_CTX,
     struct vmod_cluster_cluster *vc, VCL_BACKEND b)
 {
 	const struct vmod_cluster_cluster_param *pr;
@@ -296,7 +300,8 @@ VCL_VOID vmod_cluster_set_real(VRT_CTX,
 	pl->real = b;
 }
 
-VCL_VOID vmod_cluster_set_uncacheable_direct(VRT_CTX,
+VCL_VOID
+vmod_cluster_set_uncacheable_direct(VRT_CTX,
     struct vmod_cluster_cluster *vc, VCL_BOOL direct)
 {
 	const struct vmod_cluster_cluster_param *pr;
@@ -352,7 +357,8 @@ vmod_cluster_resolve(VRT_CTX, VCL_BACKEND dir)
 		} \
 	} while (0)
 
-VCL_BACKEND vmod_cluster_backend(VRT_CTX,
+VCL_BACKEND
+vmod_cluster_backend(VRT_CTX,
     struct vmod_cluster_cluster *vc,
     struct vmod_cluster_backend_arg *arg)
 {
