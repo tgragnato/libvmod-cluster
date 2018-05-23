@@ -69,11 +69,11 @@ Differences between the two methods are:
 
 * when different ``deny`` or, in particular, ``real`` backends are to
   be used, the cluster director can save substantial amounts of VCL
-  code: Using the ``.real()`` method, the director of real backends
-  can be changed in ``vcl_backend_fetch {}``.
+  code: Using the ``.set_real()`` method, the director of real
+  backends can be changed in ``vcl_backend_fetch {}``.
 
-  Simply put, when using the cluster director, the ``.real()`` method
-  effectively replaces ``set bereq.backend``.
+  Simply put, when using the cluster director, the ``.set_real()``
+  method effectively replaces ``set bereq.backend``.
 
 $Object cluster(BACKEND cluster, [ BACKEND deny ], [ BACKEND real ],
 	BOOL uncacheable_direct = 1)
@@ -86,7 +86,7 @@ the cluster director will resolve to a `real` backend (the blacklist)
 as if the `.deny(BACKEND)` method had been called.
 
 The optional `real` argument allows to specify the director which use
-if a denied backend would have been hit as if the `.real(BACKEND)`
+if a denied backend would have been hit as if the `.set_real(BACKEND)`
 method had been called.
 
 With the default `uncacheable_direct` argument, the cluster director
@@ -118,7 +118,7 @@ director will resolve to a `real` backend (the blacklist).
 
 Otherwise identical to the `.deny()` method.
 
-$Method VOID .real(BACKEND)
+$Method VOID .set_real(BACKEND)
 
 Only valid in ``vcl_backend_fetch {}``: Use a diffrent backend for
 resolution of real backends.
@@ -127,7 +127,7 @@ When the `.backend()` method is used with ``resolve=LAZY``, this
 method changes the behaviour irrespecitve of being called before or
 after the `.backend()` method.
 
-$Method VOID .uncacheable_direct(BOOL)
+$Method VOID .set_uncacheable_direct(BOOL)
 
 Only valid in ``vcl_backend_fetch {}``: If a ``true`` argument is
 given, a `real` backend is always returned for uncacheable backend
@@ -149,10 +149,10 @@ documentation, either as a reference to cluster director for
 ``resolve=LAZY`` or immediately for ``resolve=NOW``.
 
 The optional `deny`, `real` and `uncacheable_direct` arguments have
-the same effect as calling the methods `.deny()`, `.real()` and
-`.uncacheable_direct()` methods before the `.backend()` method with
-``resolve=LAZY``, but can also be used with ``resolve=NOW``. Use of
-these arguments with ``resolve=LAZY`` is only allowed in
+the same effect as calling the methods `.deny()`, `.set_real()` and
+`.set_uncacheable_direct()` methods before the `.backend()` method
+with ``resolve=LAZY``, but can also be used with ``resolve=NOW``. Use
+of these arguments with ``resolve=LAZY`` is only allowed in
 ``vcl_backend_fetch {}`` and ``vcl_init {}``.
 
 

@@ -278,13 +278,13 @@ VCL_VOID vmod_cluster_allow(VRT_CTX,
 	cluster_blacklist_del(pl, b);
 }
 
-VCL_VOID vmod_cluster_real(VRT_CTX,
+VCL_VOID vmod_cluster_set_real(VRT_CTX,
     struct vmod_cluster_cluster *vc, VCL_BACKEND b)
 {
 	const struct vmod_cluster_cluster_param *pr;
 	struct vmod_cluster_cluster_param *pl;
 
-	cluster_check(ctx, real);
+	cluster_check(ctx, set_real);
 
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
@@ -296,13 +296,13 @@ VCL_VOID vmod_cluster_real(VRT_CTX,
 	pl->real = b;
 }
 
-VCL_VOID vmod_cluster_uncacheable_direct(VRT_CTX,
+VCL_VOID vmod_cluster_set_uncacheable_direct(VRT_CTX,
     struct vmod_cluster_cluster *vc, VCL_BOOL direct)
 {
 	const struct vmod_cluster_cluster_param *pr;
 	struct vmod_cluster_cluster_param *pl;
 
-	cluster_check(ctx, uncacheable_direct);
+	cluster_check(ctx, set_uncacheable_direct);
 
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
