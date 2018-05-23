@@ -314,41 +314,21 @@ VCL_VOID vmod_cluster_uncacheable_direct(VRT_CTX,
 	pl->uncacheable_direct = direct;
 }
 
-// XXX
-#define VDI_HACK 1
-
 static VCL_BACKEND
 cluster_resolve(VRT_CTX,
     const struct vmod_cluster_cluster_param *pr)
 {
-	VCL_BACKEND obe, r;
-#ifdef VDI_HACK
-	struct busyobj dummy[1];
-	struct vrt_ctx cctx[1];
-#endif
+	VCL_BACKEND r;
 
 	if (pr->uncacheable_direct && ctx->bo &&
 	    (ctx->bo->do_pass || ctx->bo->uncacheable))
 		return (pr->real);
 
-#ifdef VDI_HACK
-	if (ctx->bo == NULL) {
-		INIT_OBJ(dummy, BUSYOBJ_MAGIC);
-		memcpy(cctx, ctx, sizeof *ctx);
-		cctx->bo = dummy;
-		ctx = cctx;
-	}
-#endif
-
-	obe = VRT_r_bereq_backend(ctx);
 	AN(pr->cluster);
-	VRT_l_bereq_backend(ctx, pr->cluster);
-	r = VDI_Resolve(ctx);
+	r = VRT_DirectorResolve(ctx, pr->cluster);
 
 	if (cluster_blacklisted(pr, r))
 		r = pr->real;
-
-	VRT_l_bereq_backend(ctx, obe);
 
 	return (r);
 }
