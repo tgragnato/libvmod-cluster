@@ -1,0 +1,47 @@
+varnishtest "vmod_cluster toy example with round-robin - lazy resolution"
+
+server s1 {
+    rxreq
+    txresp
+} -start
+
+server s2 {
+}
+
+server s3 {
+    rxreq
+    txresp
+} -start
+
+varnish v1 -vcl+backend {
+    import cluster;
+    import directors;
+
+    sub vcl_init {
+	new rr = directors.round_robin();
+	rr.add_backend(s1);
+	rr.add_backend(s2);
+	new cl = cluster.cluster(rr.backend(), deny=s2, real=s3,
+	    uncacheable_direct=false);
+    }
+    sub vcl_recv {
+	return (pass);
+    }
+    sub vcl_backend_fetch {
+	set bereq.backend = cl.backend();
+    }
+    sub vcl_backend_response {
+	set beresp.http.backend = beresp.backend;
+    }
+} -start
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+	expect resp.http.backend == "s1"
+	txreq
+	rxresp
+	expect resp.status == 200
+	expect resp.http.backend == "s3"
+} -run

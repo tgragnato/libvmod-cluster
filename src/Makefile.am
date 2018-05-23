@@ -25,7 +25,8 @@ AM_VTC_LOG_FLAGS = \
 	-p vmod_path="$(abs_builddir)/.libs:$(vmoddir)"
 
 TESTS = \
-	vtc/vmod_cluster.vtc
+	vtc/vmod_cluster.vtc	\
+	vtc/lazy.vtc
 
 # Documentation
 
