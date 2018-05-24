@@ -395,9 +395,11 @@ vmod_cluster_resolve(VRT_CTX, VCL_BACKEND dir)
 			(pr) = (pl) = cluster_task_param_l(		\
 			    (ctx), (vc), (pr)->nblack + 1);		\
 		} else {						\
-			(pr) = (pl) = alloca(param_sz(pl, (pr)->nblack + 1)); \
-			INIT_OBJ((pl), VMOD_CLUSTER_CLUSTER_PARAM_MAGIC); \
-		} \
+			(pl) = alloca(param_sz((pr), (pr)->nblack + 1)); \
+			memcpy((pl), (pr), param_sz((pr), (pr)->nblack)); \
+			(pl)->spcblack = (pr)->nblack + 1;		\
+			(pr) = (pl);					\
+		}							\
 	} while (0)
 
 VCL_BACKEND
