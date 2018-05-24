@@ -429,6 +429,7 @@ vmod_cluster_backend(VRT_CTX,
 	const struct vmod_cluster_cluster_param *pr;
 	struct vmod_cluster_cluster_param *pl = NULL;
 	void *spc = NULL;
+	int nblack;
 
 	if (! modify) {
 		if (arg->resolve == vmod_enum_LAZY)
@@ -449,6 +450,7 @@ vmod_cluster_backend(VRT_CTX,
 	CHECK_OBJ_NOTNULL(pr, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
 
 	char pstk[param_sz(pr, pr->nblack + 1)];
+	nblack = pr->nblack;
 
 	if (arg->resolve == vmod_enum_NOW)
 		spc = pstk;
@@ -456,20 +458,21 @@ vmod_cluster_backend(VRT_CTX,
 	if (arg->valid_deny && arg->deny != NULL &&
 	    ! cluster_blacklisted(pr, arg->deny)) {
 		if (pl == NULL) {
+			nblack = pr->nblack + 1;
 			pr = pl = cluster_task_param_l(ctx, vc,
-			    pr->nblack + 1, spc);
+			    nblack, spc);
 		}
 		cluster_blacklist_add(pl, arg->deny);
 	}
 	if (arg->valid_real && pr->real != arg->real) {
 		if (pl == NULL)
-			pr = pl = cluster_task_param_l(ctx, vc, 0, spc);
+			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
 		pl->real = arg->real;
 	}
 	if (arg->valid_uncacheable_direct &&
 	    pr->uncacheable_direct != arg->valid_uncacheable_direct) {
 		if (pl == NULL)
-			pr = pl = cluster_task_param_l(ctx, vc, 0, spc);
+			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
 		pl->uncacheable_direct = arg->valid_uncacheable_direct;
 	}
 	if (arg->resolve == vmod_enum_LAZY)
