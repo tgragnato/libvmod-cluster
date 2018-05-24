@@ -68,65 +68,95 @@ static const struct vdi_methods vmod_cluster_methods[1] = {{
 #define param_sz(p, spc) (sizeof(*(p)) + (spc) * sizeof(*(p)->blacklist))
 
 /*
- * return the appropriate parameters for the context, writeable
- * for nblack == -1: do not create, return NULL if don't exist
+ * return a writable task param struct for the current context
+ * with sufficient space for nblack blacklist entries
+ *
+ * nblack:
+ * -1: do not create, return NULL if don't exist
+ *
+ * spc:
+ * - NULL:
+ *   - in INIT, create on heap
+ *   - else create on workspace
+ * - otherwise return new object here. Size must be
+ *   param_sz(..., nblack)
  */
 static struct vmod_cluster_cluster_param *
-cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc, int nblack)
+cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
+    int nblack, void *spc)
 {
-	int nspc;
-	const int nspc_initial = 2;
-	struct vmod_priv *task;
+	struct vmod_priv *task = NULL;
 	struct vmod_cluster_cluster_param *p = NULL;
-	const struct vmod_cluster_cluster_param *o = NULL;
+	const struct vmod_cluster_cluster_param *o;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
-	assert(ctx->method == 0 ||
-	    ctx->method & (VCL_MET_INIT | VCL_MET_BACKEND_FETCH));
-
-	task = VRT_priv_task(ctx, vc);
-	if (task == NULL) {
-		VRT_fail(ctx, "no priv_task");
-		return (NULL);
+	if (ctx->method != 0 &&
+	    (ctx->method & (VCL_MET_INIT | VCL_MET_BACKEND_FETCH)) == 0) {
+		/* .backend called with resolve = NOW anywhere */
+		AN(spc);
+	} else {
+		task = VRT_priv_task(ctx, vc);
+		if (task == NULL) {
+			VRT_fail(ctx, "no priv_task");
+			return (NULL);
+		}
 	}
 
-	if (task->priv) {
+	/*
+	 * p = writable params
+	 * o = previous params we inherit
+	 */
+	o = vc->param;
+	if (task && task->priv) {
 		CAST_OBJ_NOTNULL(p, task->priv,
 		    VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
-		if (nblack <= p->spcblack)
-			return (p);
-		nspc = RUP2(nblack, 2);
 		o = p;
-	} else if (nblack == -1) {
-		return (NULL);
 	} else if (ctx->method & VCL_MET_INIT) {
-		nspc = nspc_initial;
-	} else if (ctx->method & VCL_MET_BACKEND_FETCH) {
-		o = vc->param;
-		if (nblack <= o->spcblack)
-			nspc = o->spcblack;
-		else
-			nspc = RUP2(nblack, 2);
+		CHECK_OBJ_ORNULL(o,
+		    VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
 	} else {
-		INCOMPL();
+		CHECK_OBJ_NOTNULL(o,
+		    VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
 	}
 
-	if (ctx->method & VCL_MET_INIT) {
-		p = realloc(p, param_sz(p, nspc));
-		if (o == NULL)
-			INIT_OBJ(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
-		vc->param = p;
+	if (nblack == -1)
+		return (p);
+
+	/*
+	 * make the (new) allocation and copy or return if not required
+	 * if space was provided, we always return it
+	 */
+	if (spc) {
+		p = spc;
+		if (o) {
+			assert (nblack >= o->nblack);
+			memcpy(p, o, param_sz(o, o->nblack));
+		}
+	} else if (p && nblack <= p->spcblack) {
+		return (p);
 	} else {
-		AN(o);
-		p = WS_Alloc(ctx->ws, param_sz(p, nspc));
-		if (p == NULL)
-			return (NULL);
-		memcpy(p, o, param_sz(o, o->nblack));
+		nblack = RUP2(nblack, 2);
+		if (ctx->method & VCL_MET_INIT) {
+			p = realloc(p, param_sz(p, nblack));
+			vc->param = p;
+		} else {
+			AN(o);
+			p = WS_Alloc(ctx->ws, param_sz(p, nblack));
+			if (p == NULL)
+				return (NULL);
+			memcpy(p, o, param_sz(o, o->nblack));
+		}
+		AN(task);
+		task->priv = p;
 	}
-	p->spcblack = nspc;
-	task->priv = p;
+
+	if (o == NULL)
+		INIT_OBJ(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+
+	p->spcblack = nblack;
+
 	return (p);
 }
 
@@ -139,7 +169,7 @@ cluster_task_param_r(VRT_CTX, struct vmod_cluster_cluster *vc)
 	    (ctx->method & (VCL_MET_INIT | VCL_MET_BACKEND_FETCH)) == 0)
 		return (vc->param);
 
-	o = cluster_task_param_l(ctx, vc, -1);
+	o = cluster_task_param_l(ctx, vc, -1, NULL);
 	if (o != NULL)
 		return (o);
 	o = vc->param;
@@ -194,6 +224,7 @@ vmod_cluster__init(VRT_CTX,
 {
 	struct vmod_cluster_cluster *vc;
 	struct vmod_cluster_cluster_param *p;
+	const int nblack_initial = 2;
 
 	AN(vcp);
 	AZ(*vcp);
@@ -203,7 +234,7 @@ vmod_cluster__init(VRT_CTX,
 		return;
 	}
 	AN(vc);
-	p = cluster_task_param_l(ctx, vc, 0);
+	p = cluster_task_param_l(ctx, vc, nblack_initial, NULL);
 	if (p == NULL) {
 		FREE_OBJ(vc);
 		return;
@@ -258,7 +289,7 @@ vmod_cluster_deny(VRT_CTX,
 	if (cluster_blacklisted(pr, b))
 		return;
 
-	pl = cluster_task_param_l(ctx, vc, pr->nblack + 1);
+	pl = cluster_task_param_l(ctx, vc, pr->nblack + 1, NULL);
 	cluster_blacklist_add(pl, b);
 }
 
@@ -277,7 +308,7 @@ vmod_cluster_allow(VRT_CTX,
 	if (! cluster_blacklisted(pr, b))
 		return;
 
-	pl = cluster_task_param_l(ctx, vc, pr->nblack + 1);
+	pl = cluster_task_param_l(ctx, vc, pr->nblack + 1, NULL);
 	cluster_blacklist_del(pl, b);
 }
 
@@ -310,7 +341,7 @@ vmod_cluster_set_real(VRT_CTX,
 	if (pr->real == b)
 		return;
 
-	pl = cluster_task_param_l(ctx, vc, 0);
+	pl = cluster_task_param_l(ctx, vc, 0, NULL);
 	pl->real = b;
 }
 
@@ -344,7 +375,7 @@ vmod_cluster_set_uncacheable_direct(VRT_CTX,
 	if (pr->uncacheable_direct == direct)
 		return;
 
-	pl = cluster_task_param_l(ctx, vc, 0);
+	pl = cluster_task_param_l(ctx, vc, 0, NULL);
 	pl->uncacheable_direct = direct;
 }
 
@@ -388,21 +419,6 @@ vmod_cluster_resolve(VRT_CTX, VCL_BACKEND dir)
 	    cluster_task_param_r(ctx, dir->priv)));
 }
 
-#define be_task_param_l(pl, pr, ctx, vc, arg, spc)			\
-	do {								\
-		if ((pl) != NULL) {					\
-			(void)0;					\
-		} else if ((arg)->resolve == vmod_enum_LAZY) {		\
-			(pr) = (pl) = cluster_task_param_l(		\
-			    (ctx), (vc), (pr)->nblack + 1);		\
-		} else {						\
-			(pl) = (void *)(spc);				\
-			memcpy((pl), (pr), param_sz((pr), (pr)->nblack)); \
-			(pl)->spcblack = (pr)->nblack + 1;		\
-			(pr) = (pl);					\
-		}							\
-	} while (0)
-
 VCL_BACKEND
 vmod_cluster_backend(VRT_CTX,
     struct vmod_cluster_cluster *vc,
@@ -412,6 +428,7 @@ vmod_cluster_backend(VRT_CTX,
 	    arg->valid_uncacheable_direct;
 	const struct vmod_cluster_cluster_param *pr;
 	struct vmod_cluster_cluster_param *pl = NULL;
+	void *spc = NULL;
 
 	if (! modify) {
 		if (arg->resolve == vmod_enum_LAZY)
@@ -429,21 +446,30 @@ vmod_cluster_backend(VRT_CTX,
 	}
 
 	pr = cluster_task_param_r(ctx, vc);
+	CHECK_OBJ_NOTNULL(pr, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+
 	char pstk[param_sz(pr, pr->nblack + 1)];
+
+	if (arg->resolve == vmod_enum_NOW)
+		spc = pstk;
 
 	if (arg->valid_deny && arg->deny != NULL &&
 	    ! cluster_blacklisted(pr, arg->deny)) {
-		be_task_param_l(pl, pr, ctx, vc, arg, pstk);
+		if (pl == NULL) {
+			pr = pl = cluster_task_param_l(ctx, vc,
+			    pr->nblack + 1, spc);
+		}
 		cluster_blacklist_add(pl, arg->deny);
 	}
-	if (arg->valid_real &&
-	    pr->real != arg->real) {
-		be_task_param_l(pl, pr, ctx, vc, arg, pstk);
+	if (arg->valid_real && pr->real != arg->real) {
+		if (pl == NULL)
+			pr = pl = cluster_task_param_l(ctx, vc, 0, spc);
 		pl->real = arg->real;
 	}
 	if (arg->valid_uncacheable_direct &&
 	    pr->uncacheable_direct != arg->valid_uncacheable_direct) {
-		be_task_param_l(pl, pr, ctx, vc, arg, pstk);
+		if (pl == NULL)
+			pr = pl = cluster_task_param_l(ctx, vc, 0, spc);
 		pl->uncacheable_direct = arg->valid_uncacheable_direct;
 	}
 	if (arg->resolve == vmod_enum_LAZY)

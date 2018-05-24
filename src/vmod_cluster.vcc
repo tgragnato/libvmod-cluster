@@ -172,7 +172,6 @@ $Method BACKEND .backend(ENUM {NOW, LAZY} resolve=LAZY,
 	[ BACKEND deny ], [ BACKEND real ],
 	[ BOOL uncacheable_direct ])
 
-
 Return a backend by the method described in the rest of this
 documentation, either as a reference to cluster director for
 ``resolve=LAZY`` or immediately for ``resolve=NOW``.
@@ -182,9 +181,12 @@ the same effect as calling the methods :ref:`func_cluster.deny`,
 :ref:`func_cluster.set_real` and
 :ref:`func_cluster.set_uncacheable_direct` before the `.backend()`
 method with ``resolve=LAZY``, but can also be used with
-``resolve=NOW``. Use of these arguments with ``resolve=LAZY`` is only
-allowed in ``vcl_backend_fetch {}`` and ``vcl_init {}``.
+``resolve=NOW``.
 
+Use of these arguments with ``resolve=LAZY`` is only allowed in
+``vcl_backend_fetch {}`` and ``vcl_init {}``.
+
+Calling with ``resolve=NOW`` is valid anywhere.
 
 SEE ALSO
 ========
