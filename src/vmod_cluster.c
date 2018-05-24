@@ -388,14 +388,15 @@ vmod_cluster_resolve(VRT_CTX, VCL_BACKEND dir)
 	    cluster_task_param_r(ctx, dir->priv)));
 }
 
-#define be_task_param_l(pl, pr, ctx, vc, arg)	do {			\
+#define be_task_param_l(pl, pr, ctx, vc, arg, spc)			\
+	do {								\
 		if ((pl) != NULL) {					\
 			(void)0;					\
 		} else if ((arg)->resolve == vmod_enum_LAZY) {		\
 			(pr) = (pl) = cluster_task_param_l(		\
 			    (ctx), (vc), (pr)->nblack + 1);		\
 		} else {						\
-			(pl) = alloca(param_sz((pr), (pr)->nblack + 1)); \
+			(pl) = (void *)(spc);				\
 			memcpy((pl), (pr), param_sz((pr), (pr)->nblack)); \
 			(pl)->spcblack = (pr)->nblack + 1;		\
 			(pr) = (pl);					\
@@ -409,7 +410,7 @@ vmod_cluster_backend(VRT_CTX,
 {
 	int modify = arg->valid_deny || arg->valid_real ||
 	    arg->valid_uncacheable_direct;
-	const struct vmod_cluster_cluster_param *pr = NULL;
+	const struct vmod_cluster_cluster_param *pr;
 	struct vmod_cluster_cluster_param *pl = NULL;
 
 	if (! modify) {
@@ -426,20 +427,23 @@ vmod_cluster_backend(VRT_CTX,
 		    " can not be called here");
 		return NULL;
 	}
+
 	pr = cluster_task_param_r(ctx, vc);
+	char pstk[param_sz(pr, pr->nblack + 1)];
+
 	if (arg->valid_deny && arg->deny != NULL &&
 	    ! cluster_blacklisted(pr, arg->deny)) {
-		be_task_param_l(pl, pr, ctx, vc, arg);
+		be_task_param_l(pl, pr, ctx, vc, arg, pstk);
 		cluster_blacklist_add(pl, arg->deny);
 	}
 	if (arg->valid_real &&
 	    pr->real != arg->real) {
-		be_task_param_l(pl, pr, ctx, vc, arg);
+		be_task_param_l(pl, pr, ctx, vc, arg, pstk);
 		pl->real = arg->real;
 	}
 	if (arg->valid_uncacheable_direct &&
 	    pr->uncacheable_direct != arg->valid_uncacheable_direct) {
-		be_task_param_l(pl, pr, ctx, vc, arg);
+		be_task_param_l(pl, pr, ctx, vc, arg, pstk);
 		pl->uncacheable_direct = arg->valid_uncacheable_direct;
 	}
 	if (arg->resolve == vmod_enum_LAZY)
