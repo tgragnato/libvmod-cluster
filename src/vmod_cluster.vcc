@@ -49,7 +49,7 @@ roughly equivalent if ``myself`` resolves to the local node
 
 	sub vcl_init {
 		# same as above, plus
-		new cluster = cluster.cluster(shard,
+		new cluster = cluster.cluster(shard.backend(),
 			deny = myself,
 			real = real.backend());
 	}
