@@ -37,6 +37,21 @@
 
 #include "vcc_cluster_if.h"
 
+enum resolve_e {
+	_RESOLVE_E_INVALID = 0,
+#define VMODENUM(x) x,
+#include "tbl_resolve.h"
+	_RESOLVE_E_MAX
+};
+
+static enum resolve_e
+parse_resolve_e(VCL_ENUM e)
+{
+#define VMODENUM(n) if (e == vmod_enum_ ## n) return(n);
+#include "tbl_resolve.h"
+       WRONG("illegal resolve enum");
+}
+
 struct vmod_cluster_cluster_param {
 	unsigned				magic;
 #define VMOD_CLUSTER_CLUSTER_PARAM_MAGIC	0x3ba2a0d5
@@ -393,30 +408,50 @@ vmod_cluster_get_uncacheable_direct(VRT_CTX,
 	return (pr->uncacheable_direct);
 }
 
+static inline VCL_BACKEND
+by_resolve(VRT_CTX, VCL_BACKEND r, enum resolve_e resolve)
+{
+	switch (resolve) {
+	case SHALLOW:
+		return (r);
+	case DEEP:
+		return (VRT_DirectorResolve(ctx, r));
+	default:
+		WRONG("illegal resolve argument");
+	}
+}
+
 static VCL_BACKEND
 cluster_resolve(VRT_CTX,
-    const struct vmod_cluster_cluster_param *pr)
+    const struct vmod_cluster_cluster_param *pr, enum resolve_e resolve)
 {
 	VCL_BACKEND r;
 
 	if (pr->uncacheable_direct && ctx->bo &&
 	    (ctx->bo->do_pass || ctx->bo->uncacheable))
-		return (pr->real);
+		return (by_resolve(ctx, pr->real, resolve));
 
 	AN(pr->cluster);
 	r = VRT_DirectorResolve(ctx, pr->cluster);
 
 	if (cluster_blacklisted(pr, r))
-		r = pr->real;
+		return (by_resolve(ctx, pr->real, resolve));
 
-	return (r);
+	switch (resolve) {
+	case SHALLOW:
+		return (pr->cluster);
+	case DEEP:
+		return (r);
+	default:
+		WRONG("illegal resolve argument");
+	}
 }
 
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 vmod_cluster_resolve(VRT_CTX, VCL_BACKEND dir)
 {
 	return (cluster_resolve(ctx,
-	    cluster_task_param_r(ctx, dir->priv)));
+	    cluster_task_param_r(ctx, dir->priv), DEEP));
 }
 
 VCL_BACKEND
@@ -430,16 +465,22 @@ vmod_cluster_backend(VRT_CTX,
 	struct vmod_cluster_cluster_param *pl = NULL;
 	void *spc = NULL;
 	int nblack;
+	enum resolve_e resolve = parse_resolve_e(arg->resolve);
+
+	// transitional only
+	if (resolve == NOW)
+		resolve = DEEP;
 
 	if (! modify) {
-		if (arg->resolve == vmod_enum_LAZY)
+		if (resolve == LAZY)
 			return (vc->dir);
-		return (vmod_cluster_resolve(ctx, vc->dir));
+		pr = cluster_task_param_r(ctx, vc);
+		return (cluster_resolve(ctx, pr, resolve));
 	}
 
 	AN(modify);
 
-	if (arg->resolve == vmod_enum_LAZY &&
+	if (resolve == LAZY &&
 	    (ctx->method & cluster_methods) == 0) {
 		VRT_fail(ctx, "cluster.backend(resolve=LAZY)"
 		    " can not be called here");
@@ -452,7 +493,7 @@ vmod_cluster_backend(VRT_CTX,
 	char pstk[param_sz(pr, pr->nblack + 1)];
 	nblack = pr->nblack;
 
-	if (arg->resolve == vmod_enum_NOW)
+	if (resolve == SHALLOW || resolve == DEEP)
 		spc = pstk;
 
 	if (arg->valid_deny && arg->deny != NULL &&
@@ -475,10 +516,10 @@ vmod_cluster_backend(VRT_CTX,
 			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
 		pl->uncacheable_direct = arg->valid_uncacheable_direct;
 	}
-	if (arg->resolve == vmod_enum_LAZY)
+	if (resolve == LAZY)
 		return (vc->dir);
 
-	return (cluster_resolve(ctx, pr));
+	return (cluster_resolve(ctx, pr, resolve));
 }
 
 static VCL_BOOL

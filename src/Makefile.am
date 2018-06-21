@@ -9,7 +9,8 @@ libvmod_cluster_la_LDFLAGS = $(VMOD_LDFLAGS)
 libvmod_cluster_la_SOURCES = vmod_cluster.c
 nodist_libvmod_cluster_la_SOURCES = \
 	vcc_cluster_if.c \
-	vcc_cluster_if.h
+	vcc_cluster_if.h \
+	tbl_resolve.h
 
 @BUILD_VMOD_CLUSTER@
 
@@ -26,7 +27,9 @@ AM_VTC_LOG_FLAGS = \
 
 TESTS = \
 	vtc/cfg.vtc	\
-	vtc/now.vtc	\
+	vtc/deep.vtc	\
+	vtc/deep_stk.vtc	\
+	vtc/shallow.vtc	\
 	vtc/lazy.vtc
 
 # Documentation

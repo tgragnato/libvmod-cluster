@@ -25,7 +25,7 @@ object from its cache or issue a request against a `real` backend.
 For a shard director argument ``shard``, the following examples are
 roughly equivalent if ``myself`` resolves to the local node
 
-* explicit VCL code with shard director ``resolve=now``::
+* explicit VCL code with shard director ``resolve=NOW``::
 
 	sub vcl_init {
 		new shard = directors.shard();
@@ -168,25 +168,37 @@ Return the currently configured behaviour.
 
 See :ref:`meth_ctx` for limitations.
 
-$Method BACKEND .backend(ENUM {NOW, LAZY} resolve=LAZY,
+$Method BACKEND .backend(ENUM {LAZY, SHALLOW, DEEP, NOW} resolve=LAZY,
 	[ BACKEND deny ], [ BACKEND real ],
 	[ BOOL uncacheable_direct ])
 
 Return a backend by the method described in the rest of this
-documentation, either as a reference to cluster director for
-``resolve=LAZY`` or immediately for ``resolve=NOW``.
+documentation:
+
+* for ``resolve=LAZY`` a reference to the cluster director, which can
+  still be reconfigured using the `set_*` method after the
+  `.backend()` call.
+
+* for ``resolve=SHALLOW`` a reference to the `cluster` or `real`
+  backend
+
+* for ``resolve=DEEP`` the actual backend which the `cluster` or
+  `real`backend resolve to. Only differs from ``resolve=SHALLOW`` for
+  director backends.
+
+``resolve=NOW`` is identical to ``resolve=DEEP`` as a transitional
+interface and will be removed in a future version.
 
 The optional `deny`, `real` and `uncacheable_direct` arguments have
 the same effect as calling the methods :ref:`func_cluster.deny`,
 :ref:`func_cluster.set_real` and
 :ref:`func_cluster.set_uncacheable_direct` before the `.backend()`
-method with ``resolve=LAZY``, but can also be used with
-``resolve=NOW``.
+method with ``resolve=LAZY``.
 
 Use of these arguments with ``resolve=LAZY`` is only allowed in
 ``vcl_backend_fetch {}`` and ``vcl_init {}``.
 
-Calling with ``resolve=NOW`` is valid anywhere.
+Calling with ``resolve=DEEP`` and ``resolve=SHALLOW`` is valid anywhere.
 
 SEE ALSO
 ========
