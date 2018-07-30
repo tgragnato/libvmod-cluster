@@ -376,7 +376,6 @@ VCL_BACKEND
 vmod_cluster_get_real(VRT_CTX, struct vmod_cluster_cluster *vc)
 {
 	const struct vmod_cluster_cluster_param *pr;
-	struct vmod_cluster_cluster_param *pl;
 
 	cluster_check(ctx, get_real, NULL);
 
