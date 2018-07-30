@@ -183,22 +183,27 @@ documentation:
   backend
 
 * for ``resolve=DEEP`` the actual backend which the `cluster` or
-  `real`backend resolve to. Only differs from ``resolve=SHALLOW`` for
+  `real` backend resolve to. Only differs from ``resolve=SHALLOW`` for
   director backends.
 
 ``resolve=NOW`` is identical to ``resolve=DEEP`` as a transitional
 interface and will be removed in a future version.
 
-The optional `deny`, `real` and `uncacheable_direct` arguments have
-the same effect as calling the methods :ref:`func_cluster.deny`,
-:ref:`func_cluster.set_real` and
-:ref:`func_cluster.set_uncacheable_direct` before the `.backend()`
-method with ``resolve=LAZY``.
+The optional `deny`, `real` and `uncacheable_direct` arguments behave
+differently depending on context:
 
-Use of these arguments with ``resolve=LAZY`` is only allowed in
-``vcl_backend_fetch {}`` and ``vcl_init {}``.
+* in ``vcl_backend_fetch {}`` and ``vcl_init {}``, they have the same
+  effect as calling the methods :ref:`func_cluster.deny`,
+  :ref:`func_cluster.set_real` and
+  :ref:`func_cluster.set_uncacheable_direct` before the `.backend()`
+  method - in other words, they affect future method calls on the same
+  cluster object also.
 
-Calling with ``resolve=DEEP`` and ``resolve=SHALLOW`` is valid anywhere.
+* Outside ``vcl_backend_fetch {}`` and ``vcl_init {}``, the `deny`,
+  `real` and `uncacheable_direct` arguments only affect the current
+  return value.
+
+  Also, they cannot be used together with ``resolve=LAZY``.
 
 SEE ALSO
 ========

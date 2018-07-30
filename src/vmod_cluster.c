@@ -482,8 +482,8 @@ vmod_cluster_backend(VRT_CTX,
 
 	if (resolve == LAZY &&
 	    (ctx->method & cluster_methods) == 0) {
-		VRT_fail(ctx, "cluster.backend(resolve=LAZY)"
-		    " can not be called here");
+		VRT_fail(ctx, "cluster.backend(resolve=%s)"
+		    " can not be called here", arg->resolve);
 		return NULL;
 	}
 
@@ -493,7 +493,7 @@ vmod_cluster_backend(VRT_CTX,
 	char pstk[param_sz(pr, pr->nblack + 1)];
 	nblack = pr->nblack;
 
-	if (resolve == SHALLOW || resolve == DEEP)
+	if ((ctx->method & cluster_methods) == 0)
 		spc = pstk;
 
 	if (arg->valid_deny && arg->deny != NULL &&
