@@ -69,6 +69,7 @@ varnish v1 -vcl+backend {
     sub vcl_synth {
 	set resp.http.b1 = cl.backend(resolve=NOW);
 	set resp.http.b2 = cl.backend(resolve=NOW);
+	set resp.http.cl = cl.get_cluster();
     }
     sub vcl_backend_fetch {
 
@@ -112,6 +113,7 @@ varnish v1 -vcl+backend {
     }
     sub vcl_backend_response {
 	set beresp.http.backend = beresp.backend;
+	set beresp.http.cl = cl.get_cluster();
     }
 } -start
 
@@ -175,16 +177,19 @@ client c1 {
 	expect resp.status == 200
 	expect resp.http.b1 == s1
 	expect resp.http.b2 == s3
+	expect resp.http.cl == rr
 
 	txreq
 	rxresp
 	expect resp.status == 200
 	expect resp.http.backend == "s1"
+	expect resp.http.cl == rr
 
 	txreq
 	rxresp
 	expect resp.status == 200
 	expect resp.http.backend == "s3"
+	expect resp.http.cl == rr
 } -run
 
 logexpect l1 -wait

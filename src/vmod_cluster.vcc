@@ -147,6 +147,10 @@ Change the real backend.
 
 See :ref:`meth_ctx` for limitations.
 
+$Method BACKEND .get_cluster()
+
+Return the `cluster` argument.
+
 $Method BACKEND .get_real()
 
 Return the currently configured real backend.

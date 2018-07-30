@@ -361,6 +361,18 @@ vmod_cluster_set_real(VRT_CTX,
 }
 
 VCL_BACKEND
+vmod_cluster_get_cluster(VRT_CTX, struct vmod_cluster_cluster *vc)
+{
+	const struct vmod_cluster_cluster_param *pr;
+
+	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
+
+	pr = cluster_task_param_r(ctx, vc);
+
+	return (pr->cluster);
+}
+
+VCL_BACKEND
 vmod_cluster_get_real(VRT_CTX, struct vmod_cluster_cluster *vc)
 {
 	const struct vmod_cluster_cluster_param *pr;
