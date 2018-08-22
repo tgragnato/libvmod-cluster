@@ -72,12 +72,14 @@ struct vmod_cluster_cluster {
 
 static VCL_BACKEND vmod_cluster_resolve(VRT_CTX, VCL_BACKEND);
 static VCL_BOOL vmod_cluster_healthy(VRT_CTX, VCL_BACKEND, VCL_TIME *);
+static void vmod_cluster_destroy(VCL_BACKEND);
 
 static const struct vdi_methods vmod_cluster_methods[1] = {{
 	.magic =	VDI_METHODS_MAGIC,
 	.type =		"cluster",
 	.resolve =	vmod_cluster_resolve,
 	.healthy =	vmod_cluster_healthy,
+	.destroy =	vmod_cluster_destroy
 }};
 
 #define param_sz(p, spc) (sizeof(*(p)) + (spc) * sizeof(*(p)->blacklist))
@@ -192,24 +194,35 @@ cluster_task_param_r(VRT_CTX, struct vmod_cluster_cluster *vc)
 	return (o);
 }
 
+/*
+ * note on vc->param == p:
+ *
+ * because director refcounting has an implicit reference to all directors for
+ * the duration of a task, we only grab/release references if we are handling
+ * the per-vmod-object parameters
+ */
 static void
-cluster_blacklist_add(struct vmod_cluster_cluster_param *p,
-    VCL_BACKEND b)
+cluster_blacklist_add(VRT_CTX, const struct vmod_cluster_cluster *vc,
+    struct vmod_cluster_cluster_param *p, VCL_BACKEND b)
 {
 	CHECK_OBJ_NOTNULL(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
 	assert(p->nblack < p->spcblack);
+	if (vc->param == p)
+		VRT_RefDirector(ctx, b);
 	p->blacklist[p->nblack++] = b;
 }
 
 static void
-cluster_blacklist_del(struct vmod_cluster_cluster_param *p,
-    VCL_BACKEND b)
+cluster_blacklist_del(VRT_CTX, const struct vmod_cluster_cluster *vc,
+    struct vmod_cluster_cluster_param *p, VCL_BACKEND b)
 {
 	int i;
 
 	CHECK_OBJ_NOTNULL(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
 	for (i = 0; i < p->nblack; i++)
 		if (p->blacklist[i] == b) {
+			if (vc->param == p)
+				VRT_UnrefDirector(ctx, b);
 			p->nblack--;
 			if (i < p->nblack)
 				memmove(&p->blacklist[i],
@@ -257,15 +270,43 @@ vmod_cluster__init(VRT_CTX,
 	AN(vc->param);
 	*vcp = vc;
 	p->uncacheable_direct = args->uncacheable_direct;
+	VRT_RefDirector(ctx, args->cluster);
 	p->cluster = args->cluster;
-	if (args->valid_real)
+	if (args->valid_real) {
+		VRT_RefDirector(ctx, args->real);
 		p->real = args->real;
+	}
 	if (args->valid_deny)
-		cluster_blacklist_add(p, args->deny);
+		cluster_blacklist_add(ctx, vc, p, args->deny);
 	vc->dir = VRT_AddDirector(ctx, vmod_cluster_methods, vc,
 	    "%s", vcl_name);
 }
 
+static void
+vmod_cluster_destroy(VCL_BACKEND b)
+{
+	struct vmod_cluster_cluster *vc;
+	const struct vmod_cluster_cluster_param *p;
+	int i;
+
+	CAST_OBJ_NOTNULL(vc, b->priv, VMOD_CLUSTER_CLUSTER_MAGIC);
+	p = vc->param;
+	vc->param = NULL;
+	CHECK_OBJ_NOTNULL(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+
+	for (i = 0; i < p->nblack; i++)
+		VRT_UnrefDirector(NULL, p->blacklist[i]);
+
+	if (p->real)
+		VRT_UnrefDirector(NULL, p->real);
+
+	AN(p->cluster);
+	VRT_UnrefDirector(NULL, p->cluster);
+
+	free(TRUST_ME(p));
+	FREE_OBJ(vc);
+
+}
 VCL_VOID
 vmod_cluster__fini(struct vmod_cluster_cluster **vcp)
 {
@@ -275,9 +316,7 @@ vmod_cluster__fini(struct vmod_cluster_cluster **vcp)
 	if (vc == NULL)
 		return;
 	CHECK_OBJ(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
-	VRT_DelDirector(&vc->dir);
-	free(TRUST_ME(vc->param));
-	FREE_OBJ(vc);
+	VRT_DelDirector(NULL, &vc->dir);
 }
 
 #define cluster_methods (VCL_MET_INIT | VCL_MET_BACKEND_FETCH)
@@ -305,7 +344,7 @@ vmod_cluster_deny(VRT_CTX,
 		return;
 
 	pl = cluster_task_param_l(ctx, vc, pr->nblack + 1, NULL);
-	cluster_blacklist_add(pl, b);
+	cluster_blacklist_add(ctx, vc, pl, b);
 }
 
 VCL_VOID
@@ -324,7 +363,7 @@ vmod_cluster_allow(VRT_CTX,
 		return;
 
 	pl = cluster_task_param_l(ctx, vc, pr->nblack + 1, NULL);
-	cluster_blacklist_del(pl, b);
+	cluster_blacklist_del(ctx, vc, pl, b);
 }
 
 VCL_BOOL
@@ -514,7 +553,7 @@ vmod_cluster_backend(VRT_CTX,
 			pr = pl = cluster_task_param_l(ctx, vc,
 			    nblack, spc);
 		}
-		cluster_blacklist_add(pl, arg->deny);
+		cluster_blacklist_add(ctx, vc, pl, arg->deny);
 	}
 	if (arg->valid_real && pr->real != arg->real) {
 		if (pl == NULL)
