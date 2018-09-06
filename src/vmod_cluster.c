@@ -522,10 +522,10 @@ vmod_cluster_backend(VRT_CTX,
 		pl->real = arg->real;
 	}
 	if (arg->valid_uncacheable_direct &&
-	    pr->uncacheable_direct != arg->valid_uncacheable_direct) {
+	    pr->uncacheable_direct != arg->uncacheable_direct) {
 		if (pl == NULL)
 			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
-		pl->uncacheable_direct = arg->valid_uncacheable_direct;
+		pl->uncacheable_direct = arg->uncacheable_direct;
 	}
 	if (resolve == LAZY)
 		return (vc->dir);
