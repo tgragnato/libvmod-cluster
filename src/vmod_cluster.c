@@ -323,7 +323,7 @@ vmod_cluster_allow(VRT_CTX,
 	if (! cluster_blacklisted(pr, b))
 		return;
 
-	pl = cluster_task_param_l(ctx, vc, pr->nblack + 1, NULL);
+	pl = cluster_task_param_l(ctx, vc, pr->nblack, NULL);
 	cluster_blacklist_del(pl, b);
 }
 
