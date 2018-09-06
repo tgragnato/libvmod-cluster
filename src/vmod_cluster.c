@@ -139,6 +139,8 @@ cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
 	if (nblack == -1)
 		return (p);
 
+	if (o && nblack < o->nblack)
+		nblack = o->nblack;
 	/*
 	 * make the (new) allocation and copy or return if not required
 	 * if space was provided, we always return it
