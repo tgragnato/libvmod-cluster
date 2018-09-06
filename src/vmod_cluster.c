@@ -223,12 +223,16 @@ static int
 cluster_blacklisted(const struct vmod_cluster_cluster_param *p,
     VCL_BACKEND b)
 {
+	VCL_BACKEND bl;
 	int i;
 
 	CHECK_OBJ_NOTNULL(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
-	for (i = 0; i < p->nblack; i++)
-		if (p->blacklist[i] == b)
+	for (i = 0; i < p->nblack; i++) {
+		bl = p->blacklist[i];
+		CHECK_OBJ_NOTNULL(bl, DIRECTOR_MAGIC);
+		if (bl == b)
 			return (1);
+	}
 	return (0);
 }
 
