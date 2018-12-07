@@ -7,7 +7,7 @@
 # See LICENSE
 #
 
-$Module cluster 3 Varnish cluster Module
+$Module cluster 3 "Easy Cache clustering for Varnish"
 
 DESCRIPTION
 ===========
