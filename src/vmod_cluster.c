@@ -47,7 +47,7 @@ enum resolve_e {
 static enum resolve_e
 parse_resolve_e(VCL_ENUM e)
 {
-#define VMODENUM(n) if (e == vmod_enum_ ## n) return(n);
+#define VMODENUM(n) if (e == VENUM(n)) return(n);
 #include "tbl_resolve.h"
        WRONG("illegal resolve enum");
 }
@@ -241,7 +241,7 @@ cluster_blacklisted(const struct vmod_cluster_cluster_param *p,
 VCL_VOID
 vmod_cluster__init(VRT_CTX,
     struct vmod_cluster_cluster **vcp, const char *vcl_name,
-    struct vmod_cluster__init_arg *args)
+    struct VARGS(cluster__init) *args)
 {
 	struct vmod_cluster_cluster *vc;
 	struct vmod_cluster_cluster_param *p;
@@ -474,7 +474,7 @@ vmod_cluster_resolve(VRT_CTX, VCL_BACKEND dir)
 VCL_BACKEND
 vmod_cluster_backend(VRT_CTX,
     struct vmod_cluster_cluster *vc,
-    struct vmod_cluster_backend_arg *arg)
+    struct VARGS(cluster_backend) *arg)
 {
 	int modify = arg->valid_deny || arg->valid_real ||
 	    arg->valid_uncacheable_direct;
