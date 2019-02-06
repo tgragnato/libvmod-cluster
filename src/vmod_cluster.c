@@ -541,8 +541,8 @@ vmod_cluster_backend(VRT_CTX,
 
 /*
  * layered directors may not be prepared to resolve outside a VCL task, so when
- * called from the cli (no method, no vcl), just return health of the real
- * backend
+ * called from the cli (no method, no vcl), just return healthy if either the
+ * real or the cluster backend is healthy
  */
 
 static VCL_BOOL
@@ -550,17 +550,18 @@ vmod_cluster_healthy(VRT_CTX, VCL_BACKEND be, VCL_TIME *c)
 {
 	const struct vmod_cluster_cluster *vc;
 	const struct vmod_cluster_cluster_param *p;
+	VCL_BOOL r;
 
 	if (ctx->vcl && ctx->method) {
 		be = vmod_cluster_resolve(ctx, be);
-	} else {
-		CAST_OBJ_NOTNULL(vc, be->priv,
-		    VMOD_CLUSTER_CLUSTER_MAGIC);
-		p = vc->param;
-		CHECK_OBJ_NOTNULL(p,
-		    VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
-		be = p->real;
+		return (VRT_Healthy(ctx, be, c));
 	}
 
-	return VRT_Healthy(ctx, be, c);
+	CAST_OBJ_NOTNULL(vc, be->priv, VMOD_CLUSTER_CLUSTER_MAGIC);
+	p = vc->param;
+	CHECK_OBJ_NOTNULL(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+	r = VRT_Healthy(ctx, p->cluster, c);
+	if (r)
+		return (r);
+	return (VRT_Healthy(ctx, p->real, c));
 }
