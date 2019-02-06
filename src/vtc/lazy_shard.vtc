@@ -1,4 +1,4 @@
-varnishtest "vmod_cluster toy example with round-robin - lazy resolution"
+varnishtest "vmod_cluster test shard director layering and backend.list"
 
 server s1 {
     rxreq
@@ -42,6 +42,7 @@ varnish v1 -vcl+backend {
 } -start
 
 varnish v1 -cliexpect "shard.*healthy" "backend.list"
+varnish v1 -cliexpect "cl.*healthy" "backend.list"
 
 client c1 {
 	txreq
