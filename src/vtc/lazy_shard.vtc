@@ -1,0 +1,60 @@
+varnishtest "vmod_cluster toy example with round-robin - lazy resolution"
+
+server s1 {
+    rxreq
+    txresp
+} -start
+
+server s2 {
+}
+
+server s3 {
+    rxreq
+    txresp
+} -start
+
+varnish v1 -vcl+backend {
+    import cluster;
+    import directors;
+
+    sub vcl_init {
+	new shard = directors.shard();
+	shard.add_backend(s1);
+	shard.add_backend(s2);
+	shard.reconfigure();
+	new cl = cluster.cluster(shard.backend(), deny=s2, real=s3);
+    }
+    sub vcl_recv {
+	return (pass);
+    }
+    sub vcl_backend_fetch {
+	set bereq.http.shard = shard.backend();
+	set bereq.http.unc1 = cl.get_uncacheable_direct();
+	set bereq.backend = cl.backend(uncacheable_direct=false);
+	set bereq.http.unc2 = cl.get_uncacheable_direct();
+    }
+    sub vcl_backend_response {
+	set beresp.http.shard = bereq.http.shard;
+	set beresp.http.unc1 = bereq.http.unc1;
+	set beresp.http.backend = beresp.backend;
+	set beresp.http.unc2 = bereq.http.unc2;
+    }
+} -start
+
+varnish v1 -cliexpect "shard.*healthy" "backend.list"
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+	expect resp.http.unc1 == "true"
+	expect resp.http.shard == "s2"
+	expect resp.http.backend == "s3"
+	expect resp.http.unc2 == "false"
+	txreq -url "/foo"
+	rxresp
+	expect resp.status == 200
+	expect resp.http.unc1 == "true"
+	expect resp.http.backend == "s1"
+	expect resp.http.unc2 == "false"
+} -run
