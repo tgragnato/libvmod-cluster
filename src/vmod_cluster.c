@@ -36,6 +36,7 @@
 #include <vrt_obj.h>
 
 #include "vcc_cluster_if.h"
+#include "vmod_compat.h"
 
 /* ------------------------------------------------------------
  * workaround missing VRT_DirectorResolve

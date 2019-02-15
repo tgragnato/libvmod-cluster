@@ -10,7 +10,8 @@ libvmod_cluster_la_SOURCES = vmod_cluster.c
 nodist_libvmod_cluster_la_SOURCES = \
 	vcc_cluster_if.c \
 	vcc_cluster_if.h \
-	tbl_resolve.h
+	tbl_resolve.h \
+	vmod_compat.h
 
 @BUILD_VMOD_CLUSTER@
 
