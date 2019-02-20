@@ -428,9 +428,9 @@ vmod_cluster_get_real(VRT_CTX, struct vmod_cluster_cluster *vc)
 
 VCL_VOID
 vmod_cluster_set_uncacheable_direct(VRT_CTX,
-    struct vmod_cluster_cluster *vc, VCL_BOOL direct)
+    struct vmod_cluster_cluster *vc, VCL_BOOL bool)
 {
-	CLUSTER_L(ctx, vc, uncacheable_direct, direct);
+	CLUSTER_L(ctx, vc, uncacheable_direct, bool);
 }
 
 VCL_BOOL
