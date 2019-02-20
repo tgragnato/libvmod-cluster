@@ -1,5 +1,5 @@
 /*-
- * Copyright 2018 UPLEX - Nils Goroll Systemoptimierung
+ * Copyright 2018, 2019 UPLEX - Nils Goroll Systemoptimierung
  * All rights reserved
  *
  * Author: Nils Goroll <nils.goroll@uplex.de>
@@ -386,70 +386,57 @@ vmod_cluster_get_cluster(VRT_CTX, struct vmod_cluster_cluster *vc)
 	return (pr->cluster);
 }
 
+/* set a simple parameter attribute */
+#define CLUSTER_L(ctx, vc, att, val)					\
+	const struct vmod_cluster_cluster_param *pr;			\
+	struct vmod_cluster_cluster_param *pl;				\
+									\
+	cluster_check(ctx, set_ ## att, );				\
+									\
+	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);		\
+									\
+	pr = cluster_task_param_r(ctx, vc);				\
+	if (pr->att == (val))						\
+		return;						\
+									\
+	pl = cluster_task_param_l(ctx, vc, 0, NULL);			\
+	pl->att = (val)
+
+/* get a simple parameter attribute */
+#define CLUSTER_R(ctx, vc, att, ret)					\
+	const struct vmod_cluster_cluster_param *pr;			\
+									\
+	cluster_check(ctx, get_ ## att, ret);				\
+									\
+	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);		\
+									\
+	pr = cluster_task_param_r(ctx, vc);				\
+									\
+	return (pr->att)
+
 VCL_VOID
-vmod_cluster_set_real(VRT_CTX,
-    struct vmod_cluster_cluster *vc, VCL_BACKEND b)
+vmod_cluster_set_real(VRT_CTX, struct vmod_cluster_cluster *vc, VCL_BACKEND b)
 {
-	const struct vmod_cluster_cluster_param *pr;
-	struct vmod_cluster_cluster_param *pl;
-
-	cluster_check(ctx, set_real, );
-
-	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
-
-	pr = cluster_task_param_r(ctx, vc);
-	if (pr->real == b)
-		return;
-
-	pl = cluster_task_param_l(ctx, vc, 0, NULL);
-	pl->real = b;
+	CLUSTER_L(ctx, vc, real, b);
 }
 
 VCL_BACKEND
 vmod_cluster_get_real(VRT_CTX, struct vmod_cluster_cluster *vc)
 {
-	const struct vmod_cluster_cluster_param *pr;
-
-	cluster_check(ctx, get_real, NULL);
-
-	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
-
-	pr = cluster_task_param_r(ctx, vc);
-
-	return (pr->real);
+	CLUSTER_R(ctx, vc, real, NULL);
 }
 
 VCL_VOID
 vmod_cluster_set_uncacheable_direct(VRT_CTX,
     struct vmod_cluster_cluster *vc, VCL_BOOL direct)
 {
-	const struct vmod_cluster_cluster_param *pr;
-	struct vmod_cluster_cluster_param *pl;
-
-	cluster_check(ctx, set_uncacheable_direct, );
-
-	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
-
-	pr = cluster_task_param_r(ctx, vc);
-	if (pr->uncacheable_direct == direct)
-		return;
-
-	pl = cluster_task_param_l(ctx, vc, 0, NULL);
-	pl->uncacheable_direct = direct;
+	CLUSTER_L(ctx, vc, uncacheable_direct, direct);
 }
 
 VCL_BOOL
-vmod_cluster_get_uncacheable_direct(VRT_CTX,
-    struct vmod_cluster_cluster *vc)
+vmod_cluster_get_uncacheable_direct(VRT_CTX, struct vmod_cluster_cluster *vc)
 {
-	const struct vmod_cluster_cluster_param *pr;
-
-	cluster_check(ctx, get_uncacheable_direct, 0);
-
-	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
-
-	pr = cluster_task_param_r(ctx, vc);
-	return (pr->uncacheable_direct);
+	CLUSTER_R(ctx, vc, uncacheable_direct, 0);
 }
 
 static inline VCL_BACKEND
