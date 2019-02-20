@@ -374,6 +374,18 @@ vmod_cluster_is_denied(VRT_CTX,
 	return (cluster_blacklisted(pr, b));
 }
 
+VCL_BACKEND
+vmod_cluster_get_cluster(VRT_CTX, struct vmod_cluster_cluster *vc)
+{
+	const struct vmod_cluster_cluster_param *pr;
+
+	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
+
+	pr = cluster_task_param_r(ctx, vc);
+
+	return (pr->cluster);
+}
+
 VCL_VOID
 vmod_cluster_set_real(VRT_CTX,
     struct vmod_cluster_cluster *vc, VCL_BACKEND b)
@@ -391,18 +403,6 @@ vmod_cluster_set_real(VRT_CTX,
 
 	pl = cluster_task_param_l(ctx, vc, 0, NULL);
 	pl->real = b;
-}
-
-VCL_BACKEND
-vmod_cluster_get_cluster(VRT_CTX, struct vmod_cluster_cluster *vc)
-{
-	const struct vmod_cluster_cluster_param *pr;
-
-	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
-
-	pr = cluster_task_param_r(ctx, vc);
-
-	return (pr->cluster);
 }
 
 VCL_BACKEND
