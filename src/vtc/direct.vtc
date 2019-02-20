@@ -1,0 +1,66 @@
+varnishtest "vmod_cluster test shard director layering and backend.list"
+
+server s1 {
+} -start
+
+server s2 {
+}
+
+server s3 -repeat 2 -keepalive {
+    rxreq
+    txresp
+} -start
+
+varnish v1 -vcl+backend {
+    import cluster;
+    import directors;
+
+    sub vcl_init {
+	new shard = directors.shard();
+	shard.add_backend(s1);
+	shard.add_backend(s2);
+	shard.reconfigure();
+	new cl = cluster.cluster(shard.backend(), deny=s2, real=s3);
+	cl.set_uncacheable_direct(false);
+    }
+    sub vcl_recv {
+	return (pass);
+    }
+    sub vcl_backend_fetch {
+	set bereq.http.shard = shard.backend();
+	set bereq.http.unc = cl.get_uncacheable_direct();
+	set bereq.http.dir1 = cl.get_direct();
+	cl.set_direct(bereq.http.shard != "s2");
+	set bereq.backend = cl.backend();
+	set bereq.http.dir2 = cl.get_direct();
+    }
+    sub vcl_backend_response {
+	set beresp.http.shard = bereq.http.shard;
+	set beresp.http.unc = bereq.http.unc;
+	set beresp.http.backend = beresp.backend;
+	set beresp.http.dir1 = bereq.http.dir1;
+	set beresp.http.dir2 = bereq.http.dir2;
+    }
+} -start
+
+varnish v1 -cliexpect "shard.*healthy" "backend.list"
+varnish v1 -cliexpect "cl.*healthy" "backend.list"
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+	expect resp.http.unc == "false"
+	expect resp.http.shard == "s2"
+	expect resp.http.backend == "s3"
+	expect resp.http.dir1 == "false"
+	expect resp.http.dir2 == "false"
+	txreq -url "/foo"
+	rxresp
+	expect resp.status == 200
+	expect resp.http.unc == "false"
+	expect resp.http.shard == "s1"
+	expect resp.http.backend == "s3"
+	expect resp.http.dir1 == "false"
+	expect resp.http.dir2 == "true"
+} -run

@@ -83,6 +83,7 @@ struct vmod_cluster_cluster_param {
 	unsigned				magic;
 #define VMOD_CLUSTER_CLUSTER_PARAM_MAGIC	0x3ba2a0d5
 	VCL_BOOL				uncacheable_direct;
+	VCL_BOOL				direct;
 	VCL_BACKEND				cluster;
 	VCL_BACKEND				real;
 	int					nblack;
@@ -439,6 +440,19 @@ vmod_cluster_get_uncacheable_direct(VRT_CTX, struct vmod_cluster_cluster *vc)
 	CLUSTER_R(ctx, vc, uncacheable_direct, 0);
 }
 
+VCL_VOID
+vmod_cluster_set_direct(VRT_CTX,
+    struct vmod_cluster_cluster *vc, VCL_BOOL bool)
+{
+	CLUSTER_L(ctx, vc, direct, bool);
+}
+
+VCL_BOOL
+vmod_cluster_get_direct(VRT_CTX, struct vmod_cluster_cluster *vc)
+{
+	CLUSTER_R(ctx, vc, direct, 0);
+}
+
 static inline VCL_BACKEND
 by_resolve(VRT_CTX, VCL_BACKEND r, enum resolve_e resolve)
 {
@@ -458,7 +472,8 @@ cluster_resolve(VRT_CTX,
 {
 	VCL_BACKEND r;
 
-	if (pr->uncacheable_direct && ctx->bo &&
+	if (pr->direct ||
+	    pr->uncacheable_direct && ctx->bo &&
 	    (ctx->bo->do_pass || ctx->bo->uncacheable))
 		return (by_resolve(ctx, pr->real, resolve));
 

@@ -172,6 +172,21 @@ Return the currently configured behaviour.
 
 See :ref:`meth_ctx` for limitations.
 
+$Method VOID .set_direct(BOOL)
+
+A ``true`` argument instructs the director to select a `real` backend
+always.
+
+A ``false`` argument restores the original behavior.
+
+See :ref:`meth_ctx` for limitations.
+
+$Method BOOL .get_direct()
+
+Return the current `direct` value as set with :ref:`func_cluster.get_direct`.
+
+See :ref:`meth_ctx` for limitations.
+
 $Method BACKEND .backend(ENUM {LAZY, SHALLOW, DEEP, NOW} resolve=LAZY,
 	[ BACKEND deny ], [ BACKEND real ],
 	[ BOOL uncacheable_direct ])

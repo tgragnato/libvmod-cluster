@@ -30,6 +30,7 @@ TESTS = \
 	vtc/cfg.vtc		\
 	vtc/deep.vtc		\
 	vtc/deep_stk.vtc	\
+	vtc/direct.vtc	\
 	vtc/shallow.vtc		\
 	vtc/lazy.vtc		\
 	vtc/lazy_shard.vtc
