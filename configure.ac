@@ -26,6 +26,12 @@ AC_CONFIG_FILES([
 	src/Makefile
 ])
 
+save_CFLAGS="${CFLAGS}"
+CFLAGS="${VARNISHAPI_CFLAGS}"
+AC_CHECK_DECLS([VRT_DirectorResolve], [], [], [[#include "vdef.h"
+		#include "vrt.h"]])
+CFLAGS="${save_CFLAGS}"
+
 AC_OUTPUT
 
 AS_ECHO("
