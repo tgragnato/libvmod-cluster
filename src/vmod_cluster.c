@@ -458,6 +458,9 @@ cluster_resolve(VRT_CTX,
 	AN(pr->cluster);
 	r = VRT_DirectorResolve(ctx, pr->cluster);
 
+	if (r == NULL)
+		return (NULL);
+
 	if (cluster_blacklisted(pr, r))
 		return (real_resolve(ctx, pr->real, resolve));
 
