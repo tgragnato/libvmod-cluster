@@ -457,8 +457,8 @@ cluster_resolve(VRT_CTX,
 	VCL_BACKEND r;
 
 	if (pr->direct ||
-	    pr->uncacheable_direct && ctx->bo &&
-	    (ctx->bo->do_pass || ctx->bo->uncacheable))
+	    (pr->uncacheable_direct && ctx->bo &&
+	    (ctx->bo->do_pass || ctx->bo->uncacheable)))
 		return (real_resolve(ctx, pr->real, resolve));
 
 	AN(pr->cluster);
