@@ -187,7 +187,7 @@ Return the current `direct` value as set with :ref:`func_cluster.get_direct`.
 
 See :ref:`meth_ctx` for limitations.
 
-$Method BACKEND .backend(ENUM {LAZY, SHALLOW, DEEP, NOW} resolve=LAZY,
+$Method BACKEND .backend(ENUM {LAZY, SHALLOW, DEEP} resolve=LAZY,
 	[ BACKEND deny ], [ BACKEND real ],
 	[ BOOL uncacheable_direct ])
 
@@ -204,9 +204,6 @@ documentation:
 * for ``resolve=DEEP`` the actual backend which the `cluster` or
   `real` backend resolve to. Only differs from ``resolve=SHALLOW`` for
   director backends.
-
-``resolve=NOW`` is identical to ``resolve=DEEP`` as a transitional
-interface and will be removed in a future version.
 
 The optional `deny`, `real` and `uncacheable_direct` arguments behave
 differently depending on context:

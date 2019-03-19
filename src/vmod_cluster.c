@@ -114,7 +114,7 @@ cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
 
 	if (ctx->method != 0 &&
 	    (ctx->method & (VCL_MET_INIT | VCL_MET_BACKEND_FETCH)) == 0) {
-		/* .backend called with resolve = NOW anywhere */
+		/* .backend called with resolve = DEEP anywhere */
 		AN(spc);
 	} else {
 		task = VRT_priv_task(ctx, vc);
@@ -489,10 +489,6 @@ vmod_cluster_backend(VRT_CTX,
 	void *spc = NULL;
 	int nblack;
 	enum resolve_e resolve = parse_resolve_e(arg->resolve);
-
-	// transitional only
-	if (resolve == NOW)
-		resolve = DEEP;
 
 	if (! modify) {
 		if (resolve == LAZY)

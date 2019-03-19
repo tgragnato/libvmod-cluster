@@ -67,8 +67,8 @@ varnish v1 -vcl+backend {
 	return (pass);
     }
     sub vcl_synth {
-	set resp.http.b1 = cl.backend(resolve=NOW);
-	set resp.http.b2 = cl.backend(resolve=NOW);
+	set resp.http.b1 = cl.backend(resolve=DEEP);
+	set resp.http.b2 = cl.backend(resolve=DEEP);
 	set resp.http.cl = cl.get_cluster();
     }
     sub vcl_backend_fetch {

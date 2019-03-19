@@ -18,8 +18,8 @@ varnish v1 -vcl {
 	return (synth(200));
     }
     sub vcl_synth {
-	set resp.http.b1 = cl.backend(resolve=NOW, deny=s2, real=s3);
-	set resp.http.b2 = cl.backend(resolve=NOW, deny=s2, real=s3);
+	set resp.http.b1 = cl.backend(resolve=DEEP, deny=s2, real=s3);
+	set resp.http.b2 = cl.backend(resolve=DEEP, deny=s2, real=s3);
     }
 } -start
 
