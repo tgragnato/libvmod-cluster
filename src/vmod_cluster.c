@@ -431,7 +431,7 @@ vmod_cluster_get_direct(VRT_CTX, struct vmod_cluster_cluster *vc)
 }
 
 static inline VCL_BACKEND
-by_resolve(VRT_CTX, VCL_BACKEND r, enum resolve_e resolve)
+real_resolve(VRT_CTX, VCL_BACKEND r, enum resolve_e resolve)
 {
 	switch (resolve) {
 	case SHALLOW:
@@ -452,13 +452,13 @@ cluster_resolve(VRT_CTX,
 	if (pr->direct ||
 	    pr->uncacheable_direct && ctx->bo &&
 	    (ctx->bo->do_pass || ctx->bo->uncacheable))
-		return (by_resolve(ctx, pr->real, resolve));
+		return (real_resolve(ctx, pr->real, resolve));
 
 	AN(pr->cluster);
 	r = VRT_DirectorResolve(ctx, pr->cluster);
 
 	if (cluster_blacklisted(pr, r))
-		return (by_resolve(ctx, pr->real, resolve));
+		return (real_resolve(ctx, pr->real, resolve));
 
 	switch (resolve) {
 	case SHALLOW:
