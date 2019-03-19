@@ -42,7 +42,7 @@
  * workaround missing VRT_DirectorResolve
  * Ref https://github.com/varnishcache/varnish-cache/pull/2680
  */
-#ifndef HAVE_DECL_VRT_DIRECTORRESOLVE
+#if ! HAVE_DECL_VRT_DIRECTORRESOLVE
 #include <cache/cache_director.h>
 
 static VCL_BACKEND
