@@ -1,4 +1,4 @@
-varnishtest "vmod_cluster toy example with round-robin"
+varnishtest "test resolve=DEEP"
 
 varnish v1 -vcl {
     import cluster;
@@ -12,14 +12,18 @@ varnish v1 -vcl {
 	new rr = directors.round_robin();
 	rr.add_backend(s1);
 	rr.add_backend(s2);
-	new cl = cluster.cluster(rr.backend());
+
+	new real = directors.round_robin();
+	real.add_backend(s3);
+
+	new cl = cluster.cluster(rr.backend(), deny=s2, real=real.backend());
     }
     sub vcl_recv {
 	return (synth(200));
     }
     sub vcl_synth {
-	set resp.http.b1 = cl.backend(resolve=DEEP, deny=s2, real=s3);
-	set resp.http.b2 = cl.backend(resolve=DEEP, deny=s2, real=s3);
+	set resp.http.b1 = cl.backend(resolve=DEEP);
+	set resp.http.b2 = cl.backend(resolve=DEEP);
     }
 } -start
 
