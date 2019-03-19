@@ -451,7 +451,7 @@ real_resolve(VRT_CTX, VCL_BACKEND r, enum resolve_e resolve)
 }
 
 static VCL_BACKEND
-cluster_resolve(VRT_CTX,
+decide(VRT_CTX,
     const struct vmod_cluster_cluster_param *pr, enum resolve_e resolve)
 {
 	VCL_BACKEND r;
@@ -484,7 +484,7 @@ cluster_resolve(VRT_CTX,
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 vmod_cluster_resolve(VRT_CTX, VCL_BACKEND dir)
 {
-	return (cluster_resolve(ctx,
+	return (decide(ctx,
 	    cluster_task_param_r(ctx, dir->priv), DEEP));
 }
 
@@ -505,7 +505,7 @@ cluster_choose(VRT_CTX,
 		if (resolve == LAZY)
 			return (vc->dir);
 		pr = cluster_task_param_r(ctx, vc);
-		return (cluster_resolve(ctx, pr, resolve));
+		return (decide(ctx, pr, resolve));
 	}
 
 	AN(modify);
@@ -549,7 +549,7 @@ cluster_choose(VRT_CTX,
 	if (resolve == LAZY)
 		return (vc->dir);
 
-	return (cluster_resolve(ctx, pr, resolve));
+	return (decide(ctx, pr, resolve));
 }
 
 VCL_BACKEND
