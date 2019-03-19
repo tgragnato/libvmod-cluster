@@ -435,6 +435,7 @@ real_resolve(VRT_CTX, VCL_BACKEND r, enum resolve_e resolve)
 {
 	switch (resolve) {
 	case SHALLOW:
+	case CLD:
 		return (r);
 	case DEEP:
 		return (VRT_DirectorResolve(ctx, r));
@@ -463,6 +464,7 @@ cluster_resolve(VRT_CTX,
 	switch (resolve) {
 	case SHALLOW:
 		return (pr->cluster);
+	case CLD:
 	case DEEP:
 		return (r);
 	default:

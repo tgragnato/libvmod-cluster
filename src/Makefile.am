@@ -28,6 +28,7 @@ AM_VTC_LOG_FLAGS = \
 
 TESTS = \
 	vtc/cfg.vtc		\
+	vtc/cld.vtc		\
 	vtc/deep.vtc		\
 	vtc/deep_stk.vtc	\
 	vtc/direct.vtc	\
