@@ -48,6 +48,12 @@ enum resolve_e {
 	_RESOLVE_E_MAX
 };
 
+static const char * const resolve_s[_RESOLVE_E_MAX] = {
+#define VMODENUM(x) [x] = #x,
+#include "tbl_resolve.h"
+	[_RESOLVE_E_INVALID] = "*invalid*",
+};
+
 static enum resolve_e
 parse_resolve_e(VCL_ENUM e)
 {
@@ -507,7 +513,7 @@ cluster_choose(VRT_CTX,
 	if (resolve == LAZY &&
 	    (ctx->method & cluster_methods) == 0) {
 		VRT_fail(ctx, "cluster.backend(resolve=%s)"
-		    " can not be called here", arg->resolve);
+		    " can not be called here", resolve_s[resolve]);
 		return NULL;
 	}
 
