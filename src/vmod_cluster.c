@@ -479,9 +479,10 @@ vmod_cluster_resolve(VRT_CTX, VCL_BACKEND dir)
 	    cluster_task_param_r(ctx, dir->priv), DEEP));
 }
 
-VCL_BACKEND
-vmod_cluster_backend(VRT_CTX,
+static VCL_BACKEND
+cluster_choose(VRT_CTX,
     struct vmod_cluster_cluster *vc,
+    enum resolve_e resolve,
     struct VARGS(cluster_backend) *arg)
 {
 	int modify = arg->valid_deny || arg->valid_real ||
@@ -490,7 +491,6 @@ vmod_cluster_backend(VRT_CTX,
 	struct vmod_cluster_cluster_param *pl = NULL;
 	void *spc = NULL;
 	int nblack;
-	enum resolve_e resolve = parse_resolve_e(arg->resolve);
 
 	if (! modify) {
 		if (resolve == LAZY)
@@ -541,6 +541,14 @@ vmod_cluster_backend(VRT_CTX,
 		return (vc->dir);
 
 	return (cluster_resolve(ctx, pr, resolve));
+}
+
+VCL_BACKEND
+vmod_cluster_backend(VRT_CTX,
+    struct vmod_cluster_cluster *vc,
+    struct VARGS(cluster_backend) *arg)
+{
+	return (cluster_choose(ctx, vc, parse_resolve_e(arg->resolve), arg));
 }
 
 /*
