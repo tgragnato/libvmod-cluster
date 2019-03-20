@@ -247,7 +247,7 @@ cluster_allow(VRT_CTX, struct vmod_cluster_cluster_param *p,
 }
 
 static int
-cluster_blacklisted(const struct vmod_cluster_cluster_param *p,
+cluster_denied(const struct vmod_cluster_cluster_param *p,
     VCL_BACKEND b)
 {
 	VCL_BACKEND bl;
@@ -332,7 +332,7 @@ vmod_cluster_deny(VRT_CTX,
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
 	pr = cluster_task_param_r(ctx, vc);
-	if (cluster_blacklisted(pr, b))
+	if (cluster_denied(pr, b))
 		return;
 
 	pl = cluster_task_param_l(ctx, vc, pr->nblack + 1, NULL);
@@ -351,7 +351,7 @@ vmod_cluster_allow(VRT_CTX,
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
 	pr = cluster_task_param_r(ctx, vc);
-	if (! cluster_blacklisted(pr, b))
+	if (! cluster_denied(pr, b))
 		return;
 
 	pl = cluster_task_param_l(ctx, vc, pr->nblack, NULL);
@@ -369,7 +369,7 @@ vmod_cluster_is_denied(VRT_CTX,
 
 	pr = cluster_task_param_r(ctx, vc);
 
-	return (cluster_blacklisted(pr, b));
+	return (cluster_denied(pr, b));
 }
 
 VCL_BACKEND
@@ -484,7 +484,7 @@ decide(VRT_CTX, const struct vmod_cluster_cluster_param *pr,
 		return (NULL);
 	}
 
-	if (cluster_blacklisted(pr, r))
+	if (cluster_denied(pr, r))
 		goto real;
 
 	if (decision != NULL)
@@ -525,7 +525,7 @@ cluster_update_by_args(VRT_CTX, struct vmod_cluster_cluster *vc,
 	nblack = pr->nblack;
 
 	if (arg->valid_deny && arg->deny != NULL &&
-	    ! cluster_blacklisted(pr, arg->deny)) {
+	    ! cluster_denied(pr, arg->deny)) {
 		if (pl == NULL)
 			pr = pl = cluster_task_param_l(ctx, vc,
 			    ++nblack, spc);
