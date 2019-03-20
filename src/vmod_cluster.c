@@ -591,22 +591,25 @@ cluster_choose(VRT_CTX,
 	return (decide(ctx, pr, resolve, decision));
 }
 
+#define arg2csarg(arg) {{						\
+	.valid_deny = arg->valid_deny,					\
+	.valid_real = arg->valid_real,					\
+	.valid_uncacheable_direct = arg->valid_uncacheable_direct,	\
+	.deny = arg->deny,						\
+	.real = arg->real,						\
+	.uncacheable_direct = arg->uncacheable_direct			\
+}}
+
+
 VCL_BACKEND
 vmod_cluster_backend(VRT_CTX,
     struct vmod_cluster_cluster *vc,
     struct VARGS(cluster_backend) *arg)
 {
 	enum resolve_e res = parse_resolve_e(arg->resolve);
-	struct VARGS(cluster_cluster_selected)
-	    carg[1] = {{
-			.valid_deny = arg->valid_deny,
-			.valid_real = arg->valid_real,
-			.valid_uncacheable_direct = arg->valid_uncacheable_direct,
-			.deny = arg->deny,
-			.real = arg->real,
-			.uncacheable_direct = arg->uncacheable_direct
-		}};
-	return (cluster_choose(ctx, vc, res, NULL, carg));
+	struct VARGS(cluster_cluster_selected) csarg[1] = arg2csarg(arg);
+
+	return (cluster_choose(ctx, vc, res, NULL, csarg));
 }
 
 static enum decision_e
@@ -655,17 +658,9 @@ vmod_cluster_real_selected(VRT_CTX,
     struct VARGS(cluster_real_selected) *arg)
 {
 	enum decision_e decision;
-	struct VARGS(cluster_cluster_selected)
-	    carg[1] = {{
-			.valid_deny = arg->valid_deny,
-			.valid_real = arg->valid_real,
-			.valid_uncacheable_direct = arg->valid_uncacheable_direct,
-			.deny = arg->deny,
-			.real = arg->real,
-			.uncacheable_direct = arg->uncacheable_direct
-		}};
+	struct VARGS(cluster_cluster_selected) csarg[1] = arg2csarg(arg);
 
-	decision = cluster_selected(ctx, "real_selected", vc, carg);
+	decision = cluster_selected(ctx, "real_selected", vc, csarg);
 
 	if (decision == D_NULL)
 		return (0);
