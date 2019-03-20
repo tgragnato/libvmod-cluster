@@ -22,6 +22,9 @@ backend. Otherwise, the request is to be forwarded to another node
 from the `cluster` argument, which, in turn, will either serve the
 object from its cache or issue a request against a `real` backend.
 
+Introductory configuration example
+----------------------------------
+
 For a shard director argument ``shard``, the following examples are
 roughly equivalent if ``myself`` resolves to the local node
 
@@ -61,7 +64,7 @@ roughly equivalent if ``myself`` resolves to the local node
 
 Differences between the two methods are:
 
-* the cluster director works with lazy resolution where a director
+* the cluster director can work with lazy resolution where a director
   does not return one of its configured backends, but rather a
   reference to itself (as do all the varnish bundled directors except
   for the shard director, which supports lazy resolution with the
@@ -74,6 +77,22 @@ Differences between the two methods are:
 
   Simply put, when using the cluster director, the ``.set_real()``
   method effectively replaces ``set bereq.backend``.
+
+Real life example
+-----------------
+
+As-is, the simplified example given above will run all VCL code on all
+varnish servers of the cluster. This works well if VCL is written
+idempotent, but as common VCL is not, we are providing a VCL library
+and a template example for a cluster setup in the *vcl/* and
+*example/* subdirectory of the source tree.
+
+There also is a shell-script to set up a basic demo.
+
+``vshard.inc.vcl`` provides four vcl subs to be called at the
+beginning of the main vcl subs as shown in ``vshard.example.vcl``. The
+example should hopefully be self explanatory.
+
 
 .. _meth_ctx:
 
