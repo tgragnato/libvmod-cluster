@@ -189,7 +189,7 @@ See :ref:`meth_ctx` for limitations.
 
 $Method BACKEND .backend(ENUM {LAZY, SHALLOW, DEEP, CLD} resolve=LAZY,
 	[ BACKEND deny ], [ BACKEND real ],
-	[ BOOL uncacheable_direct ])
+	[ BOOL uncacheable_direct ], [ BOOL direct ])
 
 Return a backend by the method described in the rest of this
 documentation:
@@ -209,25 +209,27 @@ documentation:
   `cluster` was selected with ``resolve=DEEP`` and a reference to the
   `real` backend otherwise.
 
-The optional `deny`, `real` and `uncacheable_direct` arguments behave
-differently depending on context:
+The optional `deny`, `real`, `uncacheable_direct` and `direct`
+arguments behave differently depending on context:
 
 * in ``vcl_backend_fetch {}`` and ``vcl_init {}``, they have the same
   effect as calling the methods :ref:`func_cluster.deny`,
-  :ref:`func_cluster.set_real` and
-  :ref:`func_cluster.set_uncacheable_direct` before the `.backend()`
-  method - in other words, they affect future method calls on the same
-  cluster object also.
+  :ref:`func_cluster.set_real`,
+  :ref:`func_cluster.set_uncacheable_direct` or
+  :ref:`func_cluster.set_direct`, before the `.backend()` method - in
+  other words, they affect future method calls on the same cluster
+  object also.
 
 * Outside ``vcl_backend_fetch {}`` and ``vcl_init {}``, the `deny`,
-  `real` and `uncacheable_direct` arguments only affect the current
-  return value.
+  `real` and `uncacheable_direct` and `direct` arguments only affect
+  the current return value.
 
-  Also, they cannot be used together with ``resolve=LAZY``.
+  Also, in these contexts they cannot be used together with
+  ``resolve=LAZY``.
 
 $Method BOOL .cluster_selected(
 	[ BACKEND deny ], [ BACKEND real ],
-	[ BOOL uncacheable_direct ])
+	[ BOOL uncacheable_direct ], [ BOOL direct ])
 
 The indended use case is::
 
@@ -252,7 +254,7 @@ the vcl otherwise.
 
 $Method BOOL .real_selected(
 	[ BACKEND deny ], [ BACKEND real ],
-	[ BOOL uncacheable_direct ])
+	[ BOOL uncacheable_direct ], [ BOOL direct ])
 
 mirrors :ref:`func_cluster.cluster_selected`, but returns true if the
 real backend is selected.

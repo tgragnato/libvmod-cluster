@@ -595,9 +595,11 @@ cluster_choose(VRT_CTX,
 	.valid_deny = arg->valid_deny,					\
 	.valid_real = arg->valid_real,					\
 	.valid_uncacheable_direct = arg->valid_uncacheable_direct,	\
+	.valid_direct = arg->valid_direct,				\
 	.deny = arg->deny,						\
 	.real = arg->real,						\
-	.uncacheable_direct = arg->uncacheable_direct			\
+	.uncacheable_direct = arg->uncacheable_direct,			\
+	.direct = arg->direct						\
 }}
 
 
