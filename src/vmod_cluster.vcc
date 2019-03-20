@@ -250,6 +250,17 @@ in which case ``bereq.backend`` is not modified;
 This method may only be called from ``vcl_backend_fetch {}`` and fail
 the vcl otherwise.
 
+$Method BOOL .real_selected(
+	[ BACKEND deny ], [ BACKEND real ],
+	[ BOOL uncacheable_direct ])
+
+mirrors :ref:`func_cluster.cluster_selected`, but returns true if the
+real backend is selected.
+
+This is not exactly the negation because of the ``NULL`` backend case
+for which both :ref:`func_cluster.cluster_selected` and
+:ref:`func_cluster.real_selected` return ``false``.
+
 SEE ALSO
 ========
 vcl\(7),varnishd\(1)

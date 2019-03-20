@@ -609,8 +609,8 @@ vmod_cluster_backend(VRT_CTX,
 	return (cluster_choose(ctx, vc, res, NULL, carg));
 }
 
-VCL_BOOL
-vmod_cluster_cluster_selected(VRT_CTX,
+static enum decision_e
+cluster_selected(VRT_CTX, const char *func,
     struct VPFX(cluster_cluster) *vc,
     struct VARGS(cluster_cluster_selected) *arg)
 {
@@ -619,20 +619,60 @@ vmod_cluster_cluster_selected(VRT_CTX,
 
 	if (ctx->method != VCL_MET_BACKEND_FETCH) {
 		VRT_fail(ctx,
-		    "cluster.cluster_selected can not be called here");
-		return (0);
+		    "cluster.%s can not be called here", func);
+		return (D_NULL);
 	}
 
 	b = cluster_choose(ctx, vc, CLD, &decision, arg);
 
 	if (decision == D_NULL || b == NULL)
-		return (0);
+		return (D_NULL);
 
 	assert(b != vc->dir);
 	VRT_l_bereq_backend(ctx, b);
 
+	return (decision);
+}
+
+VCL_BOOL
+vmod_cluster_cluster_selected(VRT_CTX,
+    struct VPFX(cluster_cluster) *vc,
+    struct VARGS(cluster_cluster_selected) *arg)
+{
+	enum decision_e decision;
+
+	decision = cluster_selected(ctx, "cluster_selected", vc, arg);
+
+	if (decision == D_NULL)
+		return (0);
+
 	return (decision == D_CLUSTER);
 }
+
+VCL_BOOL
+vmod_cluster_real_selected(VRT_CTX,
+    struct VPFX(cluster_cluster) *vc,
+    struct VARGS(cluster_real_selected) *arg)
+{
+	enum decision_e decision;
+	struct VARGS(cluster_cluster_selected)
+	    carg[1] = {{
+			.valid_deny = arg->valid_deny,
+			.valid_real = arg->valid_real,
+			.valid_uncacheable_direct = arg->valid_uncacheable_direct,
+			.deny = arg->deny,
+			.real = arg->real,
+			.uncacheable_direct = arg->uncacheable_direct
+		}};
+
+	decision = cluster_selected(ctx, "real_selected", vc, carg);
+
+	if (decision == D_NULL)
+		return (0);
+
+	return (decision == D_REAL);
+}
+
 /*
  * layered directors may not be prepared to resolve outside a VCL task, so when
  * called from the cli (no method, no vcl), just return healthy if either the
