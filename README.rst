@@ -13,44 +13,6 @@
 VMOD cluster - Easy Cache clustering for Varnish
 ================================================
 
-SYNOPSIS
-========
-
-.. parsed-literal::
-
-  import cluster [from "path"]
-  
-  :ref:`vmod_cluster.cluster`
-  
-      :ref:`vmod_cluster.cluster.deny`
-  
-      :ref:`vmod_cluster.cluster.allow`
-  
-      :ref:`vmod_cluster.cluster.is_denied`
-  
-      :ref:`vmod_cluster.cluster.set_real`
-  
-      :ref:`vmod_cluster.cluster.get_cluster`
-  
-      :ref:`vmod_cluster.cluster.get_real`
-  
-      :ref:`vmod_cluster.cluster.set_uncacheable_direct`
-  
-      :ref:`vmod_cluster.cluster.get_uncacheable_direct`
-  
-      :ref:`vmod_cluster.cluster.set_direct`
-  
-      :ref:`vmod_cluster.cluster.get_direct`
-  
-      :ref:`vmod_cluster.cluster.backend`
-  
-      :ref:`vmod_cluster.cluster.cluster_selected`
-  
-      :ref:`vmod_cluster.cluster.real_selected`
-  
-DESCRIPTION
-===========
-
 This director facilitates the implementation of varnish cache
 clustering, in particular in combination with the shard director. The
 basic design idea is to shard objects among a number of varnish caches
