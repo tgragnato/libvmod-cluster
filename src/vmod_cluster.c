@@ -504,18 +504,49 @@ vmod_cluster_resolve(VRT_CTX, VCL_BACKEND dir)
 	cluster_task_param_r(ctx, dir->priv), DEEP, NULL));
 }
 
+static const struct vmod_cluster_cluster_param *
+cluster_update_by_args(VRT_CTX, struct vmod_cluster_cluster *vc,
+    const struct vmod_cluster_cluster_param *pr,
+    const struct VARGS(cluster_cluster_selected) *arg,
+    void *spc)
+{
+	struct vmod_cluster_cluster_param *pl = NULL;
+	int nblack;
+
+	CHECK_OBJ_NOTNULL(pr, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+	nblack = pr->nblack;
+
+	if (arg->valid_deny && arg->deny != NULL &&
+	    ! cluster_blacklisted(pr, arg->deny)) {
+		if (pl == NULL)
+			pr = pl = cluster_task_param_l(ctx, vc,
+			    ++nblack, spc);
+		cluster_blacklist_add(pl, arg->deny);
+	}
+	if (arg->valid_real && pr->real != arg->real) {
+		if (pl == NULL)
+			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
+		pl->real = arg->real;
+	}
+	if (arg->valid_uncacheable_direct &&
+	    pr->uncacheable_direct != arg->uncacheable_direct) {
+		if (pl == NULL)
+			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
+		pl->uncacheable_direct = arg->uncacheable_direct;
+	}
+	return (pr);
+}
+
 static VCL_BACKEND
 cluster_choose(VRT_CTX,
     struct vmod_cluster_cluster *vc,
     enum resolve_e resolve, enum decision_e *decision,
-    struct VARGS(cluster_cluster_selected) *arg)
+    const struct VARGS(cluster_cluster_selected) *arg)
 {
 	int modify = arg->valid_deny || arg->valid_real ||
 	    arg->valid_uncacheable_direct;
 	const struct vmod_cluster_cluster_param *pr;
-	struct vmod_cluster_cluster_param *pl = NULL;
 	void *spc = NULL;
-	int nblack;
 
 	if (decision != NULL)
 		*decision = D_NULL;
@@ -539,30 +570,13 @@ cluster_choose(VRT_CTX,
 	pr = cluster_task_param_r(ctx, vc);
 	CHECK_OBJ_NOTNULL(pr, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
 
-	nblack = pr->nblack;
-	char pstk[param_sz(pr, nblack + 1)];
+	char pstk[param_sz(pr, pr->nblack + 1)];
 
 	if ((ctx->method & cluster_methods) == 0)
 		spc = pstk;
 
-	if (arg->valid_deny && arg->deny != NULL &&
-	    ! cluster_blacklisted(pr, arg->deny)) {
-		if (pl == NULL)
-			pr = pl = cluster_task_param_l(ctx, vc,
-			    ++nblack, spc);
-		cluster_blacklist_add(pl, arg->deny);
-	}
-	if (arg->valid_real && pr->real != arg->real) {
-		if (pl == NULL)
-			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
-		pl->real = arg->real;
-	}
-	if (arg->valid_uncacheable_direct &&
-	    pr->uncacheable_direct != arg->uncacheable_direct) {
-		if (pl == NULL)
-			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
-		pl->uncacheable_direct = arg->uncacheable_direct;
-	}
+	pr = cluster_update_by_args(ctx, vc, pr, arg, spc);
+
 	if (resolve == LAZY)
 		return (vc->dir);
 
