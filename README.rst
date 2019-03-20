@@ -1,1 +1,411 @@
-A director to facilitate cache-clustering.
+..
+.. NB:  This file is machine generated, DO NOT EDIT!
+..
+.. Edit vmod.vcc and run make instead
+..
+
+
+:tocdepth: 1
+
+.. _vmod_cluster(3):
+
+================================================
+VMOD cluster - Easy Cache clustering for Varnish
+================================================
+
+SYNOPSIS
+========
+
+.. parsed-literal::
+
+  import cluster [from "path"]
+  
+  :ref:`vmod_cluster.cluster`
+  
+      :ref:`vmod_cluster.cluster.deny`
+  
+      :ref:`vmod_cluster.cluster.allow`
+  
+      :ref:`vmod_cluster.cluster.is_denied`
+  
+      :ref:`vmod_cluster.cluster.set_real`
+  
+      :ref:`vmod_cluster.cluster.get_cluster`
+  
+      :ref:`vmod_cluster.cluster.get_real`
+  
+      :ref:`vmod_cluster.cluster.set_uncacheable_direct`
+  
+      :ref:`vmod_cluster.cluster.get_uncacheable_direct`
+  
+      :ref:`vmod_cluster.cluster.set_direct`
+  
+      :ref:`vmod_cluster.cluster.get_direct`
+  
+      :ref:`vmod_cluster.cluster.backend`
+  
+      :ref:`vmod_cluster.cluster.cluster_selected`
+  
+      :ref:`vmod_cluster.cluster.real_selected`
+  
+DESCRIPTION
+===========
+
+This director facilitates the implementation of varnish cache
+clustering, in particular in combination with the shard director. The
+basic design idea is to shard objects among a number of varnish caches
+configured in the director passed as the `cluster` argument: If the
+local cache is the shard member designated for serving the respective
+object, a backend request is to be made with a real
+backend. Otherwise, the request is to be forwarded to another node
+from the `cluster` argument, which, in turn, will either serve the
+object from its cache or issue a request against a `real` backend.
+
+Introductory configuration example
+----------------------------------
+
+For a shard director argument ``shard``, the following examples are
+roughly equivalent if ``myself`` resolves to the local node
+
+* explicit VCL code with shard director ``resolve=NOW``::
+
+	sub vcl_init {
+		new shard = directors.shard();
+		shard.add_backend(other_node);
+		shard.add_backend(myself);
+		shard.reconfigure();
+		new real = directors.whatever();
+		real.add_backend(...)
+		# ...
+	}
+
+	sub vcl_backend_fetch {
+		if (bereq.uncacheable || shard.backend() == myself) {
+			set bereq.backend = real.backend();
+		} else {
+			set bereq.backend = shard.backend();
+		}
+	}
+
+* use of the cluster director::
+
+	sub vcl_init {
+		# same as above, plus
+		new cluster = cluster.cluster(shard.backend(),
+			deny = myself,
+			real = real.backend());
+	}
+
+	sub vcl_backend_fetch {
+		set bereq.backend = cluster.backend();
+	}
+
+
+Differences between the two methods are:
+
+* the cluster director can work with lazy resolution where a director
+  does not return one of its configured backends, but rather a
+  reference to itself (as do all the varnish bundled directors except
+  for the shard director, which supports lazy resolution with the
+  ``resolve=LAZY`` argument).
+
+* when different ``deny`` or, in particular, ``real`` backends are to
+  be used, the cluster director can save substantial amounts of VCL
+  code: Using the ``.set_real()`` method, the director of real
+  backends can be changed in ``vcl_backend_fetch {}``.
+
+  Simply put, when using the cluster director, the ``.set_real()``
+  method effectively replaces ``set bereq.backend``.
+
+Real life example
+-----------------
+
+As-is, the simplified example given above will run all VCL code on all
+varnish servers of the cluster. This works well if VCL is written
+idempotent, but as common VCL is not, we are providing a VCL library
+and a template example for a cluster setup in the *vcl/* and
+*example/* subdirectory of the source tree.
+
+There also is a shell-script to set up a basic demo.
+
+``vshard.inc.vcl`` provides four vcl subs to be called at the
+beginning of the main vcl subs as shown in ``vshard.example.vcl``. The
+example should hopefully be self explanatory.
+
+
+.. _meth_ctx:
+
+Method Behavior in Different VCL Subs
+-------------------------------------
+
+The :ref:`obj_cluster` object methods other than
+:ref:`func_cluster.backend` behave differently depending on the
+context they are being called from:
+
+* When used in ``vcl_init{}``, they change or return the director's
+  default.
+
+* When used in ``vcl_backend_fetch {}``, they change or return the
+  director's property for this backend request only.
+
+  When the :ref:`func_cluster.backend` method is used with
+  ``resolve=LAZY``, modifying methods change the behaviour
+  irrespecitve of being called before or after the
+  :ref:`func_cluster.backend` method.
+
+* Use in vcl subs other than ``vcl_init{}`` and
+  ``vcl_backend_fetch{}`` is invalid and will trigger a VCL error.
+
+:ref:`func_cluster.backend` has slightly different, specifically
+documented limitations.
+
+.. _vmod_cluster.cluster:
+
+new xcluster = cluster.cluster(BACKEND cluster, [BACKEND deny], [BACKEND real], BOOL uncacheable_direct)
+--------------------------------------------------------------------------------------------------------
+
+::
+
+   new xcluster = cluster.cluster(
+      BACKEND cluster,
+      [BACKEND deny],
+      [BACKEND real],
+      BOOL uncacheable_direct=1
+   )
+
+Instantiate a cluster director on top of the director passed as the
+`cluster` argument.
+
+The optional `deny` argument allows to specify one backend for which
+the cluster director will resolve to a `real` backend (the blacklist)
+as if the :ref:`func_cluster.deny` method had been called.
+
+The optional `real` argument allows to specify the director which use
+if a denied backend would have been hit as if the
+:ref:`func_cluster.set_real` method had been called.
+
+With the default `uncacheable_direct` argument, the cluster director
+always selects a `real` backend for uncacheable backend requests (as
+the vcl example above illustrates). Seting this argument ``false``
+disables special handling of uncacheable backend requests.
+
+.. _vmod_cluster.cluster.deny:
+
+VOID xcluster.deny(BACKEND)
+---------------------------
+
+Add a backend to the list of backends for which the cluster director
+will resolve to a `real` backend (the blacklist).
+
+See :ref:`meth_ctx` for limitations.
+
+.. _vmod_cluster.cluster.allow:
+
+VOID xcluster.allow(BACKEND)
+----------------------------
+
+Remove a backend to the list of backends for which the cluster
+director will resolve to a `real` backend (the blacklist).
+
+See :ref:`meth_ctx` for limitations.
+
+.. _vmod_cluster.cluster.is_denied:
+
+BOOL xcluster.is_denied(BACKEND)
+--------------------------------
+
+Return true if the argument is on list of backends for which the
+cluster director will resolve to a `real` backend (the blacklist).
+
+See :ref:`meth_ctx` for limitations.
+
+.. _vmod_cluster.cluster.set_real:
+
+VOID xcluster.set_real(BACKEND)
+-------------------------------
+
+Change the real backend.
+
+See :ref:`meth_ctx` for limitations.
+
+.. _vmod_cluster.cluster.get_cluster:
+
+BACKEND xcluster.get_cluster()
+------------------------------
+
+Return the `cluster` argument.
+
+.. _vmod_cluster.cluster.get_real:
+
+BACKEND xcluster.get_real()
+---------------------------
+
+Return the currently configured real backend.
+
+See :ref:`meth_ctx` for limitations.
+
+.. _vmod_cluster.cluster.set_uncacheable_direct:
+
+VOID xcluster.set_uncacheable_direct(BOOL)
+------------------------------------------
+
+If a ``true`` argument is given, a `real` backend is always returned
+for uncacheable backend requests (e.g. passes or cache lookups hitting
+hit-for-pass). For a ``false`` argument, no difference is made with
+regard to the cacheability of the backend request.
+
+See :ref:`meth_ctx` for limitations.
+
+.. _vmod_cluster.cluster.get_uncacheable_direct:
+
+BOOL xcluster.get_uncacheable_direct()
+--------------------------------------
+
+Return the currently configured behaviour.
+
+See :ref:`meth_ctx` for limitations.
+
+.. _vmod_cluster.cluster.set_direct:
+
+VOID xcluster.set_direct(BOOL)
+------------------------------
+
+A ``true`` argument instructs the director to select a `real` backend
+always.
+
+A ``false`` argument restores the original behavior.
+
+See :ref:`meth_ctx` for limitations.
+
+.. _vmod_cluster.cluster.get_direct:
+
+BOOL xcluster.get_direct()
+--------------------------
+
+Return the current `direct` value as set with :ref:`func_cluster.get_direct`.
+
+See :ref:`meth_ctx` for limitations.
+
+.. _vmod_cluster.cluster.backend:
+
+BACKEND xcluster.backend(ENUM resolve, [BACKEND deny], [BACKEND real], [BOOL uncacheable_direct], [BOOL direct])
+----------------------------------------------------------------------------------------------------------------
+
+::
+
+      BACKEND xcluster.backend(
+            ENUM {LAZY, SHALLOW, DEEP, CLD} resolve=LAZY,
+            [BACKEND deny],
+            [BACKEND real],
+            [BOOL uncacheable_direct],
+            [BOOL direct]
+      )
+
+Return a backend by the method described in the rest of this
+documentation:
+
+* for ``resolve=LAZY`` a reference to the cluster director, which can
+  still be reconfigured using the `set_*` method after the
+  `.backend()` call.
+
+* for ``resolve=SHALLOW`` a reference to the `cluster` or `real`
+  backend
+
+* for ``resolve=DEEP`` the actual backend which the `cluster` or
+  `real` backend resolve to. Only differs from ``resolve=SHALLOW`` for
+  director backends.
+
+* for ``resolve=CLD`` (read "cluster deep") the actual backend as if
+  `cluster` was selected with ``resolve=DEEP`` and a reference to the
+  `real` backend otherwise.
+
+The optional `deny`, `real`, `uncacheable_direct` and `direct`
+arguments behave differently depending on context:
+
+* in ``vcl_backend_fetch {}`` and ``vcl_init {}``, they have the same
+  effect as calling the methods :ref:`func_cluster.deny`,
+  :ref:`func_cluster.set_real`,
+  :ref:`func_cluster.set_uncacheable_direct` or
+  :ref:`func_cluster.set_direct`, before the `.backend()` method - in
+  other words, they affect future method calls on the same cluster
+  object also.
+
+* Outside ``vcl_backend_fetch {}`` and ``vcl_init {}``, the `deny`,
+  `real` and `uncacheable_direct` and `direct` arguments only affect
+  the current return value.
+
+  Also, in these contexts they cannot be used together with
+  ``resolve=LAZY``.
+
+.. _vmod_cluster.cluster.cluster_selected:
+
+BOOL xcluster.cluster_selected([BACKEND deny], [BACKEND real], [BOOL uncacheable_direct], [BOOL direct])
+--------------------------------------------------------------------------------------------------------
+
+::
+
+      BOOL xcluster.cluster_selected(
+            [BACKEND deny],
+            [BACKEND real],
+            [BOOL uncacheable_direct],
+            [BOOL direct]
+      )
+
+The indended use case is::
+
+	if (xcluster.cluster_selected(...) {
+		# prep the cluster request
+		return (fetch);
+	}
+
+which is almost identical to::
+
+	set bereq.backend = xcluster.backend(resolve=CLD, ...);
+	if (bereq.backend != xcluster.get_real()) {
+		# prep the cluster request
+		return (fetch);
+	}
+
+Behaviour differs for the case that the ``NULL`` backend would be set,
+in which case ``bereq.backend`` is not modified;
+
+This method may only be called from ``vcl_backend_fetch {}`` and fail
+the vcl otherwise.
+
+.. _vmod_cluster.cluster.real_selected:
+
+BOOL xcluster.real_selected([BACKEND deny], [BACKEND real], [BOOL uncacheable_direct], [BOOL direct])
+-----------------------------------------------------------------------------------------------------
+
+::
+
+      BOOL xcluster.real_selected(
+            [BACKEND deny],
+            [BACKEND real],
+            [BOOL uncacheable_direct],
+            [BOOL direct]
+      )
+
+mirrors :ref:`func_cluster.cluster_selected`, but returns true if the
+real backend is selected.
+
+This is not exactly the negation because of the ``NULL`` backend case
+for which both :ref:`func_cluster.cluster_selected` and
+:ref:`func_cluster.real_selected` return ``false``.
+
+SEE ALSO
+========
+vcl\(7),varnishd\(1)
+
+COPYRIGHT
+=========
+
+::
+
+  Copyright 2018, 2019 UPLEX - Nils Goroll Systemoptimierung
+  All rights reserved
+ 
+  Author: Nils Goroll <nils.goroll@uplex.de>
+ 
+  See LICENSE
+ 
