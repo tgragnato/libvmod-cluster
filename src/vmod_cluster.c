@@ -507,8 +507,8 @@ vmod_cluster_resolve(VRT_CTX, VCL_BACKEND dir)
 static VCL_BACKEND
 cluster_choose(VRT_CTX,
     struct vmod_cluster_cluster *vc,
-    enum resolve_e resolve,
-    struct VARGS(cluster_backend) *arg)
+    enum resolve_e resolve, enum decision_e *decision,
+    struct VARGS(cluster_cluster_selected) *arg)
 {
 	int modify = arg->valid_deny || arg->valid_real ||
 	    arg->valid_uncacheable_direct;
@@ -517,11 +517,14 @@ cluster_choose(VRT_CTX,
 	void *spc = NULL;
 	int nblack;
 
+	if (decision != NULL)
+		*decision = D_NULL;
+
 	if (! modify) {
 		if (resolve == LAZY)
 			return (vc->dir);
 		pr = cluster_task_param_r(ctx, vc);
-		return (decide(ctx, pr, resolve, NULL));
+		return (decide(ctx, pr, resolve, decision));
 	}
 
 	AN(modify);
@@ -565,7 +568,7 @@ cluster_choose(VRT_CTX,
 	if (resolve == LAZY)
 		return (vc->dir);
 
-	return (decide(ctx, pr, resolve, NULL));
+	return (decide(ctx, pr, resolve, decision));
 }
 
 VCL_BACKEND
@@ -573,9 +576,42 @@ vmod_cluster_backend(VRT_CTX,
     struct vmod_cluster_cluster *vc,
     struct VARGS(cluster_backend) *arg)
 {
-	return (cluster_choose(ctx, vc, parse_resolve_e(arg->resolve), arg));
+	struct VARGS(cluster_cluster_selected)
+	    carg[1] = {{
+			.valid_deny = arg->valid_deny,
+			.valid_real = arg->valid_real,
+			.valid_uncacheable_direct = arg->valid_uncacheable_direct,
+			.deny = arg->deny,
+			.real = arg->real,
+			.uncacheable_direct = arg->uncacheable_direct
+		}};
+	return (cluster_choose(ctx, vc, parse_resolve_e(arg->resolve), NULL, carg));
 }
 
+VCL_BOOL
+vmod_cluster_cluster_selected(VRT_CTX,
+    struct VPFX(cluster_cluster) *vc,
+    struct VARGS(cluster_cluster_selected) *arg)
+{
+	enum decision_e decision;
+	VCL_BACKEND b;
+
+	if (ctx->method != VCL_MET_BACKEND_FETCH) {
+		VRT_fail(ctx,
+		    "cluster.cluster_selected can not be called here");
+		return (0);
+	}
+
+	b = cluster_choose(ctx, vc, CLD, &decision, arg);
+
+	if (decision == D_NULL || b == NULL)
+		return (0);
+
+	assert(b != vc->dir);
+	VRT_l_bereq_backend(ctx, b);
+
+	return (decision == D_CLUSTER);
+}
 /*
  * layered directors may not be prepared to resolve outside a VCL task, so when
  * called from the cli (no method, no vcl), just return healthy if either the

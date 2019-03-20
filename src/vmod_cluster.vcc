@@ -225,6 +225,31 @@ differently depending on context:
 
   Also, they cannot be used together with ``resolve=LAZY``.
 
+$Method BOOL .cluster_selected(
+	[ BACKEND deny ], [ BACKEND real ],
+	[ BOOL uncacheable_direct ])
+
+The indended use case is::
+
+	if (xcluster.cluster_selected(...) {
+		# prep the cluster request
+		return (fetch);
+	}
+
+which is almost identical to::
+
+	set bereq.backend = xcluster.backend(resolve=CLD, ...);
+	if (bereq.backend != xcluster.get_real()) {
+		# prep the cluster request
+		return (fetch);
+	}
+
+Behaviour differs for the case that the ``NULL`` backend would be set,
+in which case ``bereq.backend`` is not modified;
+
+This method may only be called from ``vcl_backend_fetch {}`` and fail
+the vcl otherwise.
+
 SEE ALSO
 ========
 vcl\(7),varnishd\(1)
