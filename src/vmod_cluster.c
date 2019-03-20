@@ -62,6 +62,12 @@ parse_resolve_e(VCL_ENUM e)
        WRONG("illegal resolve enum");
 }
 
+enum decision_e {
+	D_NULL = 0,
+	D_CLUSTER,
+	D_REAL
+};
+
 struct vmod_cluster_cluster_param {
 	unsigned				magic;
 #define VMOD_CLUSTER_CLUSTER_PARAM_MAGIC	0x3ba2a0d5
@@ -450,25 +456,31 @@ real_resolve(VRT_CTX, VCL_BACKEND r, enum resolve_e resolve)
 	}
 }
 
-static VCL_BACKEND
-decide(VRT_CTX,
-    const struct vmod_cluster_cluster_param *pr, enum resolve_e resolve)
+static inline VCL_BACKEND
+decide(VRT_CTX, const struct vmod_cluster_cluster_param *pr,
+    enum resolve_e resolve, enum decision_e *decision)
 {
 	VCL_BACKEND r;
 
 	if (pr->direct ||
 	    (pr->uncacheable_direct && ctx->bo &&
 	    (ctx->bo->do_pass || ctx->bo->uncacheable)))
-		return (real_resolve(ctx, pr->real, resolve));
+		goto real;
 
 	AN(pr->cluster);
 	r = VRT_DirectorResolve(ctx, pr->cluster);
 
-	if (r == NULL)
+	if (r == NULL) {
+		if (decision != NULL)
+			*decision = D_NULL;
 		return (NULL);
+	}
 
 	if (cluster_blacklisted(pr, r))
-		return (real_resolve(ctx, pr->real, resolve));
+		goto real;
+
+	if (decision != NULL)
+		*decision = D_CLUSTER;
 
 	switch (resolve) {
 	case SHALLOW:
@@ -479,13 +491,17 @@ decide(VRT_CTX,
 	default:
 		WRONG("illegal resolve argument");
 	}
+  real:
+	if (decision != NULL)
+		*decision = D_REAL;
+	return (real_resolve(ctx, pr->real, resolve));
 }
 
 static VCL_BACKEND v_matchproto_(vdi_resolve_f)
 vmod_cluster_resolve(VRT_CTX, VCL_BACKEND dir)
 {
 	return (decide(ctx,
-	    cluster_task_param_r(ctx, dir->priv), DEEP));
+	cluster_task_param_r(ctx, dir->priv), DEEP, NULL));
 }
 
 static VCL_BACKEND
@@ -505,7 +521,7 @@ cluster_choose(VRT_CTX,
 		if (resolve == LAZY)
 			return (vc->dir);
 		pr = cluster_task_param_r(ctx, vc);
-		return (decide(ctx, pr, resolve));
+		return (decide(ctx, pr, resolve, NULL));
 	}
 
 	AN(modify);
@@ -549,7 +565,7 @@ cluster_choose(VRT_CTX,
 	if (resolve == LAZY)
 		return (vc->dir);
 
-	return (decide(ctx, pr, resolve));
+	return (decide(ctx, pr, resolve, NULL));
 }
 
 VCL_BACKEND
