@@ -27,14 +27,14 @@ AM_VTC_LOG_FLAGS = \
 	-p vmod_path="$(abs_builddir)/.libs:$(vmoddir)"
 
 TESTS = \
-	vtc/cfg.vtc			\
-	vtc/cld.vtc			\
-	vtc/cluster_selected.vtc	\
-	vtc/deep.vtc			\
-	vtc/deep_stk.vtc		\
-	vtc/direct.vtc			\
-	vtc/shallow.vtc			\
-	vtc/lazy.vtc			\
+	vtc/cfg.vtc		\
+	vtc/cld.vtc		\
+	vtc/selected.vtc	\
+	vtc/deep.vtc		\
+	vtc/deep_stk.vtc	\
+	vtc/direct.vtc		\
+	vtc/shallow.vtc		\
+	vtc/lazy.vtc		\
 	vtc/lazy_shard.vtc
 
 # Documentation

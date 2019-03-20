@@ -1,4 +1,4 @@
-varnishtest "test .cluster_selected"
+varnishtest "test .*_selected"
 
 varnish v1 -vcl {
     import cluster;
@@ -20,17 +20,27 @@ varnish v1 -vcl {
     }
     sub vcl_backend_fetch {
 	set bereq.http.c1 = cl.cluster_selected();
-	set bereq.http.b1 = bereq.backend;
+	set bereq.http.bc1 = bereq.backend;
 	set bereq.http.c2 = cl.cluster_selected();
-	set bereq.http.b2 = bereq.backend;
+	set bereq.http.bc2 = bereq.backend;
+
+	set bereq.http.r1 = cl.real_selected();
+	set bereq.http.br1 = bereq.backend;
+	set bereq.http.r2 = cl.real_selected();
+	set bereq.http.br2 = bereq.backend;
     }
     sub vcl_backend_error {
 	set beresp.status = 200;
 	set beresp.http.c1 = bereq.http.c1;
-	set beresp.http.b1 = bereq.http.b1;
+	set beresp.http.bc1 = bereq.http.bc1;
 	set beresp.http.c2 = bereq.http.c2;
-	set beresp.http.b2 = bereq.http.b2;
-    }
+	set beresp.http.bc2 = bereq.http.bc2;
+
+	set beresp.http.r1 = bereq.http.r1;
+	set beresp.http.br1 = bereq.http.br1;
+	set beresp.http.r2 = bereq.http.r2;
+	set beresp.http.br2 = bereq.http.br2;
+}
 } -start
 
 client c1 {
@@ -38,7 +48,12 @@ client c1 {
 	rxresp
 	expect resp.status == 200
 	expect resp.http.c1 == true
-	expect resp.http.b1 == s1
+	expect resp.http.bc1 == s1
 	expect resp.http.c2 == false
-	expect resp.http.b2 == real
+	expect resp.http.bc2 == real
+
+	expect resp.http.r1 == false
+	expect resp.http.br1 == s1
+	expect resp.http.r2 == true
+	expect resp.http.br2 == real
 } -run
