@@ -61,7 +61,7 @@ typeset -i i
 for((i=1; i<=3; i++)) ; do
     # nutch the kernel to choose the source ip we want
     sudo ifconfig lo:${i} 127.0.1.${i}/32 up
-    varnishd -F -p vcl_path="${base}" -f "${base}/vshard.example.vcl" \
+    varnishd -F -p vcl_path="${base}"/../vcl -f "${base}/vshard.example.vcl" \
 	     -a 127.0.1.${i}:8080 -n varnish-${i} -i varnish-${i} &
     pids+=($!)
 done
