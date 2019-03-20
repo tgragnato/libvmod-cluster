@@ -212,21 +212,29 @@ cluster_task_param_r(VRT_CTX, struct vmod_cluster_cluster *vc)
 }
 
 static void
-cluster_blacklist_add(struct vmod_cluster_cluster_param *p,
+cluster_blacklist_add(VRT_CTX, struct vmod_cluster_cluster_param *p,
     VCL_BACKEND b)
 {
 	CHECK_OBJ_NOTNULL(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+	if (b == NULL) {
+		VRT_fail(ctx, "Can not deny the NULL backend");
+		return;
+	}
 	assert(p->nblack < p->spcblack);
 	p->blacklist[p->nblack++] = b;
 }
 
 static void
-cluster_blacklist_del(struct vmod_cluster_cluster_param *p,
+cluster_blacklist_del(VRT_CTX, struct vmod_cluster_cluster_param *p,
     VCL_BACKEND b)
 {
 	int i;
 
 	CHECK_OBJ_NOTNULL(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+	if (b == NULL) {
+		VRT_fail(ctx, "Can not allow the NULL backend");
+		return;
+	}
 	for (i = 0; i < p->nblack; i++)
 		if (p->blacklist[i] == b) {
 			p->nblack--;
@@ -284,7 +292,7 @@ vmod_cluster__init(VRT_CTX,
 	if (args->valid_real)
 		p->real = args->real;
 	if (args->valid_deny)
-		cluster_blacklist_add(p, args->deny);
+		cluster_blacklist_add(ctx, p, args->deny);
 	vc->dir = VRT_AddDirector(ctx, vmod_cluster_methods, vc,
 	    "%s", vcl_name);
 }
@@ -328,7 +336,7 @@ vmod_cluster_deny(VRT_CTX,
 		return;
 
 	pl = cluster_task_param_l(ctx, vc, pr->nblack + 1, NULL);
-	cluster_blacklist_add(pl, b);
+	cluster_blacklist_add(ctx, pl, b);
 }
 
 VCL_VOID
@@ -347,7 +355,7 @@ vmod_cluster_allow(VRT_CTX,
 		return;
 
 	pl = cluster_task_param_l(ctx, vc, pr->nblack, NULL);
-	cluster_blacklist_del(pl, b);
+	cluster_blacklist_del(ctx, pl, b);
 }
 
 VCL_BOOL
@@ -521,7 +529,7 @@ cluster_update_by_args(VRT_CTX, struct vmod_cluster_cluster *vc,
 		if (pl == NULL)
 			pr = pl = cluster_task_param_l(ctx, vc,
 			    ++nblack, spc);
-		cluster_blacklist_add(pl, arg->deny);
+		cluster_blacklist_add(ctx, pl, arg->deny);
 	}
 	if (arg->valid_real && pr->real != arg->real) {
 		if (pl == NULL)
