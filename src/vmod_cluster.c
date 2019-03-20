@@ -539,19 +539,17 @@ cluster_choose(VRT_CTX,
 	pr = cluster_task_param_r(ctx, vc);
 	CHECK_OBJ_NOTNULL(pr, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
 
-	char pstk[param_sz(pr, pr->nblack + 1)];
 	nblack = pr->nblack;
+	char pstk[param_sz(pr, nblack + 1)];
 
 	if ((ctx->method & cluster_methods) == 0)
 		spc = pstk;
 
 	if (arg->valid_deny && arg->deny != NULL &&
 	    ! cluster_blacklisted(pr, arg->deny)) {
-		if (pl == NULL) {
-			nblack = pr->nblack + 1;
+		if (pl == NULL)
 			pr = pl = cluster_task_param_l(ctx, vc,
-			    nblack, spc);
-		}
+			    ++nblack, spc);
 		cluster_blacklist_add(pl, arg->deny);
 	}
 	if (arg->valid_real && pr->real != arg->real) {
@@ -576,6 +574,7 @@ vmod_cluster_backend(VRT_CTX,
     struct vmod_cluster_cluster *vc,
     struct VARGS(cluster_backend) *arg)
 {
+	enum resolve_e res = parse_resolve_e(arg->resolve);
 	struct VARGS(cluster_cluster_selected)
 	    carg[1] = {{
 			.valid_deny = arg->valid_deny,
@@ -585,7 +584,7 @@ vmod_cluster_backend(VRT_CTX,
 			.real = arg->real,
 			.uncacheable_direct = arg->uncacheable_direct
 		}};
-	return (cluster_choose(ctx, vc, parse_resolve_e(arg->resolve), NULL, carg));
+	return (cluster_choose(ctx, vc, res, NULL, carg));
 }
 
 VCL_BOOL
@@ -623,7 +622,6 @@ vmod_cluster_healthy(VRT_CTX, VCL_BACKEND be, VCL_TIME *c)
 {
 	const struct vmod_cluster_cluster *vc;
 	const struct vmod_cluster_cluster_param *p;
-	VCL_BOOL r;
 
 	if (ctx->vcl && ctx->method) {
 		be = vmod_cluster_resolve(ctx, be);
@@ -633,8 +631,6 @@ vmod_cluster_healthy(VRT_CTX, VCL_BACKEND be, VCL_TIME *c)
 	CAST_OBJ_NOTNULL(vc, be->priv, VMOD_CLUSTER_CLUSTER_MAGIC);
 	p = vc->param;
 	CHECK_OBJ_NOTNULL(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
-	r = VRT_Healthy(ctx, p->cluster, c);
-	if (r)
-		return (r);
-	return (VRT_Healthy(ctx, p->real, c));
+	return (VRT_Healthy(ctx, p->cluster, c) ||
+	    VRT_Healthy(ctx, p->real, c));
 }
