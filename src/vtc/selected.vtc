@@ -40,7 +40,8 @@ varnish v1 -vcl {
 	set beresp.http.br1 = bereq.http.br1;
 	set beresp.http.r2 = bereq.http.r2;
 	set beresp.http.br2 = bereq.http.br2;
-}
+	return (deliver);
+    }
 } -start
 
 client c1 {
