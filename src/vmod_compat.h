@@ -8,6 +8,10 @@
 #define VARGS(x) vmod_ ## x ## _arg
 #endif
 
+#ifndef VPFX
+#define VPFX(x) vmod_ ## x
+#endif
+
 /* ------------------------------------------------------------
  * workaround missing VRT_DirectorResolve
  * Ref https://github.com/varnishcache/varnish-cache/pull/2680

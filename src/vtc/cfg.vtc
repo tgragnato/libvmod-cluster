@@ -193,19 +193,3 @@ client c1 {
 } -run
 
 logexpect l1 -wait
-
-varnish v1 -errvcl {Can not deny the NULL backend} {
-    import cluster;
-    import directors;
-
-    backend dummy { .host = "${bad_ip}"; }
-
-    sub vcl_init {
-	new rr = directors.round_robin();
-	rr.add_backend(dummy);
-	new cl = cluster.cluster(
-	    rr.backend(),
-	    deny=directors.lookup("null"),
-	    real=dummy);
-    }
-}
