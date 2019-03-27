@@ -6,12 +6,14 @@ vmod_LTLIBRARIES = \
 	libvmod_cluster.la
 
 libvmod_cluster_la_LDFLAGS = $(VMOD_LDFLAGS)
-libvmod_cluster_la_SOURCES = vmod_cluster.c
-nodist_libvmod_cluster_la_SOURCES = \
-	vcc_cluster_if.c \
-	vcc_cluster_if.h \
+libvmod_cluster_la_SOURCES = \
+	vmod_cluster.c \
 	tbl_resolve.h \
 	vmod_compat.h
+
+nodist_libvmod_cluster_la_SOURCES = \
+	vcc_cluster_if.c \
+	vcc_cluster_if.h
 
 @BUILD_VMOD_CLUSTER@
 
@@ -24,7 +26,7 @@ TEST_EXTENSIONS = .vtc
 VTC_LOG_COMPILER = varnishtest -v
 AM_VTC_LOG_FLAGS = \
 	-p vcl_path="$(abs_top_srcdir)/vcl" \
-	-p vmod_path="$(abs_builddir)/.libs:$(vmoddir)"
+	-p vmod_path="$(abs_builddir)/.libs:$(vmoddir):$(VARNISHAPI_VMODDIR)"
 
 TESTS = \
 	vtc/cfg.vtc		\
