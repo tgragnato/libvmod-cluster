@@ -41,7 +41,8 @@ roughly equivalent if ``myself`` resolves to the local node
 	}
 
 	sub vcl_backend_fetch {
-		if (bereq.uncacheable || shard.backend() == myself) {
+		if (bereq.uncacheable || bereq.is_hitmiss ||
+		    bereq.is_hitpass || shard.backend() == myself) {
 			set bereq.backend = real.backend();
 		} else {
 			set bereq.backend = shard.backend();
