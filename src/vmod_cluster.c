@@ -174,6 +174,7 @@ cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
 		nblack = RUP2(nblack, 2);
 		if (ctx->method & VCL_MET_INIT) {
 			p = realloc(p, param_sz(p, nblack));
+			AN(p);
 			vc->param = p;
 		} else {
 			AN(o);
@@ -186,6 +187,7 @@ cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
 		task->priv = p;
 	}
 
+	AN(p);
 	if (o == NULL)
 		INIT_OBJ(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
 
@@ -398,6 +400,8 @@ vmod_cluster_get_cluster(VRT_CTX, struct vmod_cluster_cluster *vc)
 		return;						\
 									\
 	pl = cluster_task_param_l(ctx, vc, 0, NULL);			\
+	if (pl == NULL)							\
+		return;							\
 	pl->att = (val)
 
 /* get a simple parameter attribute */
@@ -409,6 +413,7 @@ vmod_cluster_get_cluster(VRT_CTX, struct vmod_cluster_cluster *vc)
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);		\
 									\
 	pr = cluster_task_param_r(ctx, vc);				\
+	AN(pr);								\
 									\
 	return (pr->att)
 
@@ -527,20 +532,26 @@ cluster_update_by_args(VRT_CTX, struct vmod_cluster_cluster *vc,
 
 	if (arg->valid_deny && arg->deny != NULL &&
 	    ! cluster_denied(pr, arg->deny)) {
+		pr = pl = cluster_task_param_l(ctx, vc, ++nblack, spc);
 		if (pl == NULL)
-			pr = pl = cluster_task_param_l(ctx, vc,
-			    ++nblack, spc);
+			return (NULL);
 		cluster_deny(ctx, pl, arg->deny);
 	}
+	AN(pr);
 	if (arg->valid_real && pr->real != arg->real) {
 		if (pl == NULL)
 			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
+		if (pl == NULL)
+			return (NULL);
 		pl->real = arg->real;
 	}
+	AN(pr);
 	if (arg->valid_uncacheable_direct &&
 	    pr->uncacheable_direct != arg->uncacheable_direct) {
 		if (pl == NULL)
 			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
+		if (pl == NULL)
+			return (NULL);
 		pl->uncacheable_direct = arg->uncacheable_direct;
 	}
 	return (pr);
@@ -585,6 +596,8 @@ cluster_choose(VRT_CTX,
 		spc = pstk;
 
 	pr = cluster_update_by_args(ctx, vc, pr, arg, spc);
+	if (pr == NULL)
+		return (NULL);
 
 	if (resolve == LAZY)
 		return (vc->dir);
