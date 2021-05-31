@@ -472,8 +472,8 @@ decide(VRT_CTX, const struct vmod_cluster_cluster_param *pr,
 
 	if (pr->direct ||
 	    (pr->uncacheable_direct && ctx->bo &&
-	    (ctx->bo->do_pass || ctx->bo->uncacheable ||
-	     ctx->bo->is_hitmiss || ctx->bo->is_hitpass)))
+	    (ctx->bo->uncacheable ||  ctx->bo->is_hitmiss ||
+             ctx->bo->is_hitpass)))
 		goto real;
 
 	AN(pr->cluster);
