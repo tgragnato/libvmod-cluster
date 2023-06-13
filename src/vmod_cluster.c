@@ -314,13 +314,6 @@ vmod_cluster__fini(struct vmod_cluster_cluster **vcp)
 }
 
 #define cluster_methods (VCL_MET_INIT | VCL_MET_BACKEND_FETCH)
-#define cluster_check(ctx, name, ret) do {				\
-		if ((ctx->method & cluster_methods) == 0) {		\
-			VRT_fail(ctx,					\
-			    "cluster." #name " can not be called here"); \
-			return ret;					\
-		}							\
-	} while(0)
 
 VCL_VOID
 vmod_cluster_deny(VRT_CTX,
@@ -329,7 +322,7 @@ vmod_cluster_deny(VRT_CTX,
 	const struct vmod_cluster_cluster_param *pr;
 	struct vmod_cluster_cluster_param *pl;
 
-	cluster_check(ctx, deny, );
+	AN(ctx->method & cluster_methods);
 
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
@@ -348,7 +341,7 @@ vmod_cluster_allow(VRT_CTX,
 	const struct vmod_cluster_cluster_param *pr;
 	struct vmod_cluster_cluster_param *pl;
 
-	cluster_check(ctx, allow, );
+	AN(ctx->method & cluster_methods);
 
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
@@ -366,7 +359,7 @@ vmod_cluster_is_denied(VRT_CTX,
 {
 	const struct vmod_cluster_cluster_param *pr;
 
-	cluster_check(ctx, is_denied, 0);
+	AN(ctx->method & cluster_methods);
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 
 	pr = cluster_task_param_r(ctx, vc);
@@ -391,7 +384,7 @@ vmod_cluster_get_cluster(VRT_CTX, struct vmod_cluster_cluster *vc)
 	const struct vmod_cluster_cluster_param *pr;			\
 	struct vmod_cluster_cluster_param *pl;				\
 									\
-	cluster_check(ctx, set_ ## att, );				\
+	AN(ctx->method & cluster_methods);				\
 									\
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);		\
 									\
@@ -408,7 +401,7 @@ vmod_cluster_get_cluster(VRT_CTX, struct vmod_cluster_cluster *vc)
 #define CLUSTER_R(ctx, vc, att, ret)					\
 	const struct vmod_cluster_cluster_param *pr;			\
 									\
-	cluster_check(ctx, get_ ## att, ret);				\
+	AN(ctx->method & cluster_methods);				\
 									\
 	CHECK_OBJ_NOTNULL(vc, VMOD_CLUSTER_CLUSTER_MAGIC);		\
 									\

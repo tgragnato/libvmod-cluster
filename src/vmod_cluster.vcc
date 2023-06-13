@@ -104,6 +104,8 @@ The :ref:`obj_cluster` object methods other than
 :ref:`func_cluster.backend` behave differently depending on the
 context they are being called from:
 
+* Use is restricted to ``vcl_init{}`` and ``vcl_backend_fetch{}``.
+
 * When used in ``vcl_init{}``, they change or return the director's
   default.
 
@@ -114,9 +116,6 @@ context they are being called from:
   ``resolve=LAZY``, modifying methods change the behaviour
   irrespecitve of being called before or after the
   :ref:`func_cluster.backend` method.
-
-* Use in vcl subs other than ``vcl_init{}`` and
-  ``vcl_backend_fetch{}`` is invalid and will trigger a VCL error.
 
 :ref:`func_cluster.backend` has slightly different, specifically
 documented limitations.
@@ -145,12 +144,16 @@ $Method VOID .deny(BACKEND)
 Add a backend to the list of backends for which the cluster director
 will resolve to a `real` backend (the blacklist).
 
+$Restrict vcl_init vcl_backend_fetch
+
 See :ref:`meth_ctx` for limitations.
 
 $Method VOID .allow(BACKEND)
 
 Remove a backend to the list of backends for which the cluster
 director will resolve to a `real` backend (the blacklist).
+
+$Restrict vcl_init vcl_backend_fetch
 
 See :ref:`meth_ctx` for limitations.
 
@@ -159,11 +162,15 @@ $Method BOOL .is_denied(BACKEND)
 Return true if the argument is on list of backends for which the
 cluster director will resolve to a `real` backend (the blacklist).
 
+$Restrict vcl_init vcl_backend_fetch
+
 See :ref:`meth_ctx` for limitations.
 
 $Method VOID .set_real(BACKEND)
 
 Change the real backend.
+
+$Restrict vcl_init vcl_backend_fetch
 
 See :ref:`meth_ctx` for limitations.
 
@@ -175,6 +182,8 @@ $Method BACKEND .get_real()
 
 Return the currently configured real backend.
 
+$Restrict vcl_init vcl_backend_fetch
+
 See :ref:`meth_ctx` for limitations.
 
 $Method VOID .set_uncacheable_direct(BOOL)
@@ -184,11 +193,15 @@ for uncacheable backend requests (e.g. passes or cache lookups hitting
 hit-for-pass). For a ``false`` argument, no difference is made with
 regard to the cacheability of the backend request.
 
+$Restrict vcl_init vcl_backend_fetch
+
 See :ref:`meth_ctx` for limitations.
 
 $Method BOOL .get_uncacheable_direct()
 
 Return the currently configured behaviour.
+
+$Restrict vcl_init vcl_backend_fetch
 
 See :ref:`meth_ctx` for limitations.
 
@@ -199,11 +212,14 @@ always.
 
 A ``false`` argument restores the original behavior.
 
+$Restrict vcl_init vcl_backend_fetch
+
 See :ref:`meth_ctx` for limitations.
 
 $Method BOOL .get_direct()
 
 Return the current `direct` value as set with :ref:`func_cluster.get_direct`.
+$Restrict vcl_init vcl_backend_fetch
 
 See :ref:`meth_ctx` for limitations.
 
