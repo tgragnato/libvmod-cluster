@@ -51,3 +51,8 @@ dist_man_MANS = \
 
 .rst.1:
 	$(AM_V_GEN) $(RST2MAN) $< $@
+
+.PHONY: flint
+
+flint:
+	flexelint $(VARNISHAPI_CFLAGS) -I .. flint.lnt *.c
