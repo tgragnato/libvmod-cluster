@@ -1,5 +1,8 @@
 -efile(537, tbl*)
 -efile(451, tbl*)
+-efile(766, vmod_compat.h)
+
+-e717	// do ... while(0)
 
 -ecall(835, dlopen)
 -e801	// goto
