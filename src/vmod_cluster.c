@@ -71,10 +71,20 @@ enum decision_e {
 struct vmod_cluster_cluster_param {
 	unsigned				magic;
 #define VMOD_CLUSTER_CLUSTER_PARAM_MAGIC	0x3ba2a0d5
-	VCL_BOOL				uncacheable_direct;
-	VCL_BOOL				direct;
-	VCL_BACKEND				cluster;
-	VCL_BACKEND				real;
+
+#define BOOL_FIELDS				\
+	BOOLF(uncacheable_direct)		\
+	BOOLF(direct)
+#define BACKEND_FIELDS				\
+	BACKF(cluster)				\
+	BACKF(real)
+#define BOOLF(x) VCL_BOOL x;
+	BOOL_FIELDS
+#undef BOOLF
+#define BACKF(x) VCL_BACKEND x;
+	BACKEND_FIELDS
+#undef BACKF
+
 	int					ndeny;
 	int					spcdeny;
 	VCL_BACKEND				denylist[];
@@ -84,20 +94,115 @@ struct vmod_cluster_cluster {
 	unsigned				magic;
 #define VMOD_CLUSTER_CLUSTER_MAGIC		0x4e25630b
 	VCL_BACKEND				dir;
-	const struct vmod_cluster_cluster_param *param;
+	struct vmod_cluster_cluster_param	*param;
 };
 
 static VCL_BACKEND vmod_cluster_resolve(VRT_CTX, VCL_BACKEND);
 static VCL_BOOL vmod_cluster_healthy(VRT_CTX, VCL_BACKEND, VCL_TIME *);
+static void vmod_cluster_release(VCL_BACKEND);
+
+static void v_matchproto_(vdi_destroy_f)
+vmod_cluster_destroy(VCL_BACKEND dir)
+{
+	struct vmod_cluster_cluster *vc;
+	struct vmod_cluster_cluster_param *p;
+
+	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(vc, dir->priv, VMOD_CLUSTER_CLUSTER_MAGIC);
+	TAKE_OBJ_NOTNULL(p, &vc->param, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+
+	FREE_OBJ(p);
+}
 
 static const struct vdi_methods vmod_cluster_methods[1] = {{
 	.magic =	VDI_METHODS_MAGIC,
 	.type =		"cluster",
 	.resolve =	vmod_cluster_resolve,
 	.healthy =	vmod_cluster_healthy,
+	.release =	vmod_cluster_release,
+	.destroy =	vmod_cluster_destroy
 }};
 
 #define param_sz(p, spc) (sizeof(*(p)) + (spc) * sizeof(*(p)->denylist))
+
+static void
+cluster_task_param_init(struct vmod_cluster_cluster_param *p, size_t sz)
+{
+
+	AN(p);
+	assert(sz > sizeof *p);
+
+	INIT_OBJ(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+	p->spcdeny = (sz - sizeof *p) / sizeof *p->denylist;
+}
+
+static void
+cluster_task_param_deref(struct vmod_cluster_cluster_param *p)
+{
+	int i;
+
+	CHECK_OBJ_NOTNULL(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+
+#define BACKF(x) VRT_Assign_Backend(&p->x, NULL);
+	BACKEND_FIELDS
+#undef BACKF
+
+	for (i = 0; i < p->ndeny; i++)
+		VRT_Assign_Backend(&p->denylist[i], NULL);
+}
+
+static void
+cluster_task_param_cp(struct vmod_cluster_cluster_param *dst,
+    const struct vmod_cluster_cluster_param *src, size_t sz)
+{
+	int i;
+
+	AN(dst);
+	CHECK_OBJ_NOTNULL(src, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+	cluster_task_param_init(dst, sz);
+
+#define BOOLF(x) dst->x = src->x;
+	BOOL_FIELDS
+#undef BOOLF
+#define BACKF(x) VRT_Assign_Backend(&dst->x, src->x);
+	BACKEND_FIELDS
+#undef BACKF
+
+	assert(dst->spcdeny >= src->ndeny);
+	for (i = 0; i < src->ndeny; i++)
+		VRT_Assign_Backend(&dst->denylist[i], src->denylist[i]);
+	dst->ndeny = src->ndeny;
+}
+
+static void
+priv_fini(VRT_CTX, void *pp)
+{
+	struct vmod_cluster_cluster_param *p;
+
+	CAST_OBJ_NOTNULL(p, pp, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+	cluster_task_param_deref(p);
+	memset(p, 0, sizeof *p);
+}
+
+static const struct vmod_priv_methods priv_methods[1] = {{
+	.magic = VMOD_PRIV_METHODS_MAGIC,
+	.type = "vmod_cluster",
+	.fini = priv_fini
+}};
+
+static void v_matchproto_(vdi_release_f)
+vmod_cluster_release(VCL_BACKEND dir)
+{
+	struct vmod_cluster_cluster *vc;
+	struct vmod_cluster_cluster_param *p;
+
+	CHECK_OBJ_NOTNULL(dir, DIRECTOR_MAGIC);
+	CAST_OBJ_NOTNULL(vc, dir->priv, VMOD_CLUSTER_CLUSTER_MAGIC);
+	p = vc->param;
+	CHECK_OBJ_NOTNULL(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+
+	cluster_task_param_deref(p);
+}
 
 /*
  * return a writable task param struct for the current context
@@ -120,6 +225,7 @@ cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
 	struct vmod_priv *task = NULL;
 	struct vmod_cluster_cluster_param *p = NULL;
 	const struct vmod_cluster_cluster_param *o;
+	size_t sz;
 
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
@@ -148,6 +254,7 @@ cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
 	} else if (ctx->method & VCL_MET_INIT) {
 		CHECK_OBJ_ORNULL(o,
 		    VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+		p = (void *)o;
 	} else {
 		CHECK_OBJ_NOTNULL(o,
 		    VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
@@ -156,7 +263,7 @@ cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
 	if (ndeny == -1)
 		return (p);
 
-	if (o && ndeny < o->ndeny)
+	if (spc == NULL && o != NULL && ndeny < o->ndeny)
 		ndeny = o->ndeny;
 	/*
 	 * make the (new) allocation and copy or return if not required
@@ -164,34 +271,41 @@ cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
 	 */
 	if (spc) {
 		p = spc;
-		if (o) {
-			assert (ndeny >= o->ndeny);
-			memcpy(p, o, param_sz(o, o->ndeny));
-		}
+		sz = param_sz(o, ndeny);
+		if (o)
+			cluster_task_param_cp(p, o, sz);
+		else
+			cluster_task_param_init(p, sz);
 	} else if (p && ndeny <= p->spcdeny) {
 		return (p);
 	} else {
 		ndeny = RUP2(ndeny, 2);
+		AN(task);
 		if (ctx->method & VCL_MET_INIT) {
-			p = realloc(p, param_sz(p, ndeny));
+			// one reference before/after, no need for ...param_cp
+			sz = param_sz(o, ndeny);
+			p = realloc(p, sz);
 			AN(p);
+			if (o)
+				p->spcdeny = ndeny;
+			else
+				cluster_task_param_init(p, sz);
 			vc->param = p;
 		} else {
 			AN(o);
-			p = WS_Alloc(ctx->ws, param_sz(p, ndeny));
+			sz = param_sz(p, ndeny);
+			p = WS_Alloc(ctx->ws, sz);
 			if (p == NULL)
 				return (NULL);
-			memcpy(p, o, param_sz(o, o->ndeny));
+			cluster_task_param_cp(p, o, sz);
+			task->methods = priv_methods;
+			if (task->priv != NULL)
+				cluster_task_param_deref(task->priv);
 		}
-		AN(task);
 		task->priv = p;
 	}
 
 	AN(p);
-	if (o == NULL)
-		INIT_OBJ(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
-
-	p->spcdeny = ndeny;
 
 	return (p);
 }
@@ -223,7 +337,7 @@ cluster_deny(VRT_CTX, struct vmod_cluster_cluster_param *p,
 		return;
 	}
 	assert(p->ndeny < p->spcdeny);
-	p->denylist[p->ndeny++] = b;
+	VRT_Assign_Backend(&p->denylist[p->ndeny++], b);
 }
 
 static void
@@ -239,6 +353,7 @@ cluster_allow(VRT_CTX, struct vmod_cluster_cluster_param *p,
 	}
 	for (i = 0; i < p->ndeny; i++)
 		if (p->denylist[i] == b) {
+			VRT_Assign_Backend(&p->denylist[i], NULL);
 			p->ndeny--;
 			if (i < p->ndeny)
 				memmove(&p->denylist[i],
@@ -290,9 +405,9 @@ vmod_cluster__init(VRT_CTX,
 	AN(vc->param);
 	*vcp = vc;
 	p->uncacheable_direct = args->uncacheable_direct;
-	p->cluster = args->cluster;
+	VRT_Assign_Backend(&p->cluster, args->cluster);
 	if (args->valid_real)
-		p->real = args->real;
+		VRT_Assign_Backend(&p->real, args->real);
 	if (args->valid_deny)
 		cluster_deny(ctx, p, args->deny);
 	vc->dir = VRT_AddDirector(ctx, vmod_cluster_methods, vc,
@@ -309,7 +424,6 @@ vmod_cluster__fini(struct vmod_cluster_cluster **vcp)
 		return;
 	CHECK_OBJ(vc, VMOD_CLUSTER_CLUSTER_MAGIC);
 	VRT_DelDirector(&vc->dir);
-	free(TRUST_ME(vc->param));
 	FREE_OBJ(vc);
 }
 
@@ -379,6 +493,11 @@ vmod_cluster_get_cluster(VRT_CTX, struct vmod_cluster_cluster *vc)
 	return (pr->cluster);
 }
 
+#define SET_real(dst, src)			\
+	VRT_Assign_Backend(&(dst), src)
+#define SET_direct(dst, src) (dst) = (src)
+#define SET_uncacheable_direct(dst, src) (dst) = (src)
+
 /* set a simple parameter attribute */
 #define CLUSTER_L(ctx, vc, att, val)					\
 	const struct vmod_cluster_cluster_param *pr;			\
@@ -395,7 +514,7 @@ vmod_cluster_get_cluster(VRT_CTX, struct vmod_cluster_cluster *vc)
 	pl = cluster_task_param_l(ctx, vc, 0, NULL);			\
 	if (pl == NULL)							\
 		return;							\
-	pl->att = (val)
+	SET_ ## att(pl->att, val)
 
 /* get a simple parameter attribute */
 #define CLUSTER_R(ctx, vc, att, ret)					\
@@ -536,7 +655,7 @@ cluster_update_by_args(VRT_CTX, struct vmod_cluster_cluster *vc,
 			pr = pl = cluster_task_param_l(ctx, vc, ndeny, spc);
 		if (pl == NULL)
 			return (NULL);
-		pl->real = arg->real;
+		VRT_Assign_Backend(&pl->real, arg->real);
 	}
 	AN(pr);
 	if (arg->valid_uncacheable_direct &&
@@ -560,6 +679,7 @@ cluster_choose(VRT_CTX,
 	    arg->valid_uncacheable_direct;
 	const struct vmod_cluster_cluster_param *pr;
 	void *spc = NULL;
+	VCL_BACKEND r;
 
 	if (decision != NULL)
 		*decision = D_NULL;
@@ -595,7 +715,13 @@ cluster_choose(VRT_CTX,
 	if (resolve == LAZY)
 		return (vc->dir);
 
-	return (decide(ctx, pr, resolve, decision));
+	r = decide(ctx, pr, resolve, decision);
+
+	// XXX cast
+	if (spc)
+		cluster_task_param_deref((void *)pr);
+
+	return (r);
 }
 
 #define arg2csarg(arg) {{						\
