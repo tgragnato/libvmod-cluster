@@ -75,9 +75,9 @@ struct vmod_cluster_cluster_param {
 	VCL_BOOL				direct;
 	VCL_BACKEND				cluster;
 	VCL_BACKEND				real;
-	int					nblack;
-	int					spcblack;
-	VCL_BACKEND				blacklist[];
+	int					ndeny;
+	int					spcdeny;
+	VCL_BACKEND				denylist[];
 };
 
 struct vmod_cluster_cluster {
@@ -97,13 +97,13 @@ static const struct vdi_methods vmod_cluster_methods[1] = {{
 	.healthy =	vmod_cluster_healthy,
 }};
 
-#define param_sz(p, spc) (sizeof(*(p)) + (spc) * sizeof(*(p)->blacklist))
+#define param_sz(p, spc) (sizeof(*(p)) + (spc) * sizeof(*(p)->denylist))
 
 /*
  * return a writable task param struct for the current context
- * with sufficient space for nblack blacklist entries
+ * with sufficient space for ndeny denylist entries
  *
- * nblack:
+ * ndeny:
  * -1: do not create, return NULL if don't exist
  *
  * spc:
@@ -111,11 +111,11 @@ static const struct vdi_methods vmod_cluster_methods[1] = {{
  *   - in INIT, create on heap
  *   - else create on workspace
  * - otherwise return new object here. Size must be
- *   param_sz(..., nblack)
+ *   param_sz(..., ndeny)
  */
 static struct vmod_cluster_cluster_param *
 cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
-    int nblack, void *spc)
+    int ndeny, void *spc)
 {
 	struct vmod_priv *task = NULL;
 	struct vmod_cluster_cluster_param *p = NULL;
@@ -153,11 +153,11 @@ cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
 		    VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
 	}
 
-	if (nblack == -1)
+	if (ndeny == -1)
 		return (p);
 
-	if (o && nblack < o->nblack)
-		nblack = o->nblack;
+	if (o && ndeny < o->ndeny)
+		ndeny = o->ndeny;
 	/*
 	 * make the (new) allocation and copy or return if not required
 	 * if space was provided, we always return it
@@ -165,23 +165,23 @@ cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
 	if (spc) {
 		p = spc;
 		if (o) {
-			assert (nblack >= o->nblack);
-			memcpy(p, o, param_sz(o, o->nblack));
+			assert (ndeny >= o->ndeny);
+			memcpy(p, o, param_sz(o, o->ndeny));
 		}
-	} else if (p && nblack <= p->spcblack) {
+	} else if (p && ndeny <= p->spcdeny) {
 		return (p);
 	} else {
-		nblack = RUP2(nblack, 2);
+		ndeny = RUP2(ndeny, 2);
 		if (ctx->method & VCL_MET_INIT) {
-			p = realloc(p, param_sz(p, nblack));
+			p = realloc(p, param_sz(p, ndeny));
 			AN(p);
 			vc->param = p;
 		} else {
 			AN(o);
-			p = WS_Alloc(ctx->ws, param_sz(p, nblack));
+			p = WS_Alloc(ctx->ws, param_sz(p, ndeny));
 			if (p == NULL)
 				return (NULL);
-			memcpy(p, o, param_sz(o, o->nblack));
+			memcpy(p, o, param_sz(o, o->ndeny));
 		}
 		AN(task);
 		task->priv = p;
@@ -191,7 +191,7 @@ cluster_task_param_l(VRT_CTX, struct vmod_cluster_cluster *vc,
 	if (o == NULL)
 		INIT_OBJ(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
 
-	p->spcblack = nblack;
+	p->spcdeny = ndeny;
 
 	return (p);
 }
@@ -222,8 +222,8 @@ cluster_deny(VRT_CTX, struct vmod_cluster_cluster_param *p,
 		VRT_fail(ctx, "Can not deny the NULL backend");
 		return;
 	}
-	assert(p->nblack < p->spcblack);
-	p->blacklist[p->nblack++] = b;
+	assert(p->ndeny < p->spcdeny);
+	p->denylist[p->ndeny++] = b;
 }
 
 static void
@@ -237,13 +237,13 @@ cluster_allow(VRT_CTX, struct vmod_cluster_cluster_param *p,
 		VRT_fail(ctx, "Can not allow the NULL backend");
 		return;
 	}
-	for (i = 0; i < p->nblack; i++)
-		if (p->blacklist[i] == b) {
-			p->nblack--;
-			if (i < p->nblack)
-				memmove(&p->blacklist[i],
-				    &p->blacklist[i+1],
-				    (p->nblack - i) * sizeof(*p->blacklist));
+	for (i = 0; i < p->ndeny; i++)
+		if (p->denylist[i] == b) {
+			p->ndeny--;
+			if (i < p->ndeny)
+				memmove(&p->denylist[i],
+				    &p->denylist[i+1],
+				    (p->ndeny - i) * sizeof(*p->denylist));
 			return;
 		}
 }
@@ -256,8 +256,8 @@ cluster_denied(const struct vmod_cluster_cluster_param *p,
 	int i;
 
 	CHECK_OBJ_NOTNULL(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
-	for (i = 0; i < p->nblack; i++) {
-		bl = p->blacklist[i];
+	for (i = 0; i < p->ndeny; i++) {
+		bl = p->denylist[i];
 		CHECK_OBJ_NOTNULL(bl, DIRECTOR_MAGIC);
 		if (bl == b)
 			return (1);
@@ -272,7 +272,7 @@ vmod_cluster__init(VRT_CTX,
 {
 	struct vmod_cluster_cluster *vc;
 	struct vmod_cluster_cluster_param *p;
-	const int nblack_initial = 2;
+	const int ndeny_initial = 2;
 
 	AN(vcp);
 	AZ(*vcp);
@@ -282,7 +282,7 @@ vmod_cluster__init(VRT_CTX,
 		return;
 	}
 	AN(vc);
-	p = cluster_task_param_l(ctx, vc, nblack_initial, NULL);
+	p = cluster_task_param_l(ctx, vc, ndeny_initial, NULL);
 	if (p == NULL) {
 		FREE_OBJ(vc);
 		return;
@@ -330,7 +330,7 @@ vmod_cluster_deny(VRT_CTX,
 	if (cluster_denied(pr, b))
 		return;
 
-	pl = cluster_task_param_l(ctx, vc, pr->nblack + 1, NULL);
+	pl = cluster_task_param_l(ctx, vc, pr->ndeny + 1, NULL);
 	cluster_deny(ctx, pl, b);
 }
 
@@ -349,7 +349,7 @@ vmod_cluster_allow(VRT_CTX,
 	if (! cluster_denied(pr, b))
 		return;
 
-	pl = cluster_task_param_l(ctx, vc, pr->nblack, NULL);
+	pl = cluster_task_param_l(ctx, vc, pr->ndeny, NULL);
 	cluster_allow(ctx, pl, b);
 }
 
@@ -518,14 +518,14 @@ cluster_update_by_args(VRT_CTX, struct vmod_cluster_cluster *vc,
     void *spc)
 {
 	struct vmod_cluster_cluster_param *pl = NULL;
-	int nblack;
+	int ndeny;
 
 	CHECK_OBJ_NOTNULL(pr, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
-	nblack = pr->nblack;
+	ndeny = pr->ndeny;
 
 	if (arg->valid_deny && arg->deny != NULL &&
 	    ! cluster_denied(pr, arg->deny)) {
-		pr = pl = cluster_task_param_l(ctx, vc, ++nblack, spc);
+		pr = pl = cluster_task_param_l(ctx, vc, ++ndeny, spc);
 		if (pl == NULL)
 			return (NULL);
 		cluster_deny(ctx, pl, arg->deny);
@@ -533,7 +533,7 @@ cluster_update_by_args(VRT_CTX, struct vmod_cluster_cluster *vc,
 	AN(pr);
 	if (arg->valid_real && pr->real != arg->real) {
 		if (pl == NULL)
-			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
+			pr = pl = cluster_task_param_l(ctx, vc, ndeny, spc);
 		if (pl == NULL)
 			return (NULL);
 		pl->real = arg->real;
@@ -542,7 +542,7 @@ cluster_update_by_args(VRT_CTX, struct vmod_cluster_cluster *vc,
 	if (arg->valid_uncacheable_direct &&
 	    pr->uncacheable_direct != arg->uncacheable_direct) {
 		if (pl == NULL)
-			pr = pl = cluster_task_param_l(ctx, vc, nblack, spc);
+			pr = pl = cluster_task_param_l(ctx, vc, ndeny, spc);
 		if (pl == NULL)
 			return (NULL);
 		pl->uncacheable_direct = arg->uncacheable_direct;
@@ -583,7 +583,7 @@ cluster_choose(VRT_CTX,
 	pr = cluster_task_param_r(ctx, vc);
 	CHECK_OBJ_NOTNULL(pr, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
 
-	char pstk[param_sz(pr, pr->nblack + 1)];
+	char pstk[param_sz(pr, pr->ndeny + 1)];
 
 	if ((ctx->method & cluster_methods) == 0)
 		spc = pstk;

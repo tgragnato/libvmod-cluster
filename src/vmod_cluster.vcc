@@ -127,7 +127,7 @@ Instantiate a cluster director on top of the director passed as the
 `cluster` argument.
 
 The optional `deny` argument allows to specify one backend for which
-the cluster director will resolve to a `real` backend (the blacklist)
+the cluster director will resolve to a `real` backend (the denylist)
 as if the :ref:`func_cluster.deny` method had been called.
 
 The optional `real` argument allows to specify the director which use
@@ -142,7 +142,7 @@ disables special handling of uncacheable backend requests.
 $Method VOID .deny(BACKEND)
 
 Add a backend to the list of backends for which the cluster director
-will resolve to a `real` backend (the blacklist).
+will resolve to a `real` backend (the denylist).
 
 $Restrict vcl_init vcl_backend_fetch
 
@@ -151,7 +151,7 @@ See :ref:`meth_ctx` for limitations.
 $Method VOID .allow(BACKEND)
 
 Remove a backend to the list of backends for which the cluster
-director will resolve to a `real` backend (the blacklist).
+director will resolve to a `real` backend (the denylist).
 
 $Restrict vcl_init vcl_backend_fetch
 
@@ -160,7 +160,7 @@ See :ref:`meth_ctx` for limitations.
 $Method BOOL .is_denied(BACKEND)
 
 Return true if the argument is on list of backends for which the
-cluster director will resolve to a `real` backend (the blacklist).
+cluster director will resolve to a `real` backend (the denylist).
 
 $Restrict vcl_init vcl_backend_fetch
 
