@@ -132,7 +132,8 @@ cluster_task_param_init(struct vmod_cluster_cluster_param *p, size_t sz)
 	AN(p);
 	assert(sz > sizeof *p);
 
-	INIT_OBJ(p, VMOD_CLUSTER_CLUSTER_PARAM_MAGIC);
+	memset(p, 0, sz);
+	p->magic = VMOD_CLUSTER_CLUSTER_PARAM_MAGIC;
 	p->spcdeny = (sz - sizeof *p) / sizeof *p->denylist;
 }
 
