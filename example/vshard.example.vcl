@@ -47,7 +47,7 @@ backend default {
 #
 # * change IPs
 
-include "vshard_probe.inc.vcl";
+include "cluster/vshard_probe.inc.vcl";
 
 backend varnish-1 {
 	.host = "127.0.1.1";
@@ -96,7 +96,7 @@ sub vcl_init {
 	new vcluster_ttl = constant.duration(5m);
 }
 
-include "vshard.inc.vcl";
+include "cluster/vshard.inc.vcl";
 
 # return (synth(404)) here for manual control as in the example
 #
