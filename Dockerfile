@@ -1,4 +1,4 @@
-FROM varnish:7.7-alpine AS builder
+FROM varnish:8.0-alpine AS builder
 USER root
 RUN apk add --no-cache curl automake autoconf libtool make py3-docutils
 WORKDIR /workspace
@@ -7,7 +7,7 @@ RUN ./bootstrap
 RUN ./configure
 RUN make -j"$(nproc)" VERBOSE=1 install
 
-FROM varnish:7.7-alpine
+FROM varnish:8.0-alpine
 COPY --from=builder /usr/lib/varnish/vmods/libvmod_cluster.la /usr/lib/varnish/vmods/libvmod_cluster.la
 COPY --from=builder /usr/lib/varnish/vmods/libvmod_cluster.so /usr/lib/varnish/vmods/libvmod_cluster.so
 COPY --from=builder /usr/share/doc/libvmod-cluster /usr/share/doc/libvmod-cluster
